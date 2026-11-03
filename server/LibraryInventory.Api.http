@@ -1,0 +1,64 @@
+@host = http://localhost:5169
+
+### Список компьютеров
+GET {{host}}/api/computers
+Accept: application/json
+
+### Поиск компьютеров
+GET {{host}}/api/computers?search=читальный
+Accept: application/json
+
+### Добавить компьютер
+POST {{host}}/api/computers
+Content-Type: application/json
+
+{
+  "inventoryNumber": "ПК-0001",
+  "model": "Lenovo ThinkCentre M70q",
+  "processor": "Intel Core i5-12400",
+  "graphicsCard": "Intel UHD Graphics 730",
+  "ramGb": 16,
+  "storage": "SSD 512 ГБ",
+  "motherboard": "Lenovo 12T3",
+  "operatingSystem": "Windows 11 Pro",
+  "location": "Читальный зал",
+  "assignedTo": "Иванова А. П.",
+  "commissionedOn": "2024-09-02",
+  "notes": "Основное рабочее место"
+}
+
+### Список периферии
+GET {{host}}/api/devices
+Accept: application/json
+
+### Периферия без привязки к компьютеру
+GET {{host}}/api/devices?unassigned=true
+Accept: application/json
+
+### Добавить монитор и привязать к компьютеру с id = 1
+POST {{host}}/api/devices
+Content-Type: application/json
+
+{
+  "inventoryNumber": "МОН-0012",
+  "type": "Monitor",
+  "manufacturer": "Dell",
+  "model": "P2219H",
+  "serialNumber": "CN-012345",
+  "computerId": 1
+}
+
+### Изменить устройство
+PUT {{host}}/api/devices/1
+Content-Type: application/json
+
+{
+  "inventoryNumber": "МОН-0012",
+  "type": "Monitor",
+  "manufacturer": "Dell",
+  "model": "P2219H",
+  "computerId": null
+}
+
+### Удалить устройство
+DELETE {{host}}/api/devices/1
