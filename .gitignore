@@ -1,0 +1,20 @@
+# .NET
+**/bin/
+**/obj/
+*.user
+
+# SQLite
+server/library.db
+server/library.db-shm
+server/library.db-wal
+
+# Node
+client/node_modules/
+
+# Собранный клиент
+server/wwwroot/
+
+# IDE
+.vs/
+.idea/
+.vscode/
