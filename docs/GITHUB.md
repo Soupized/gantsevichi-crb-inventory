@@ -34,7 +34,7 @@ GitHub Desktop — программа с кнопками вместо кома�
 ### 3. Добавьте готовый проект
 
 1. В GitHub Desktop выберите **File → Add local repository**.
-2. Укажите папку `C:\Users\Soup\GantsevichiLibrary`.
+2. Укажите папку `C:\Users\Uservan\GantsevichiLibrary`.
 3. Нажмите **Add repository**.
 
 Слева появится история коммитов проекта.
