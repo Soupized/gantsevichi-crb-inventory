@@ -23,9 +23,7 @@ async function request(path, options = {}) {
       } else if (data?.message) {
         message = data.message;
       }
-    } catch {
-      // Ответ без JSON — оставляем общий текст ошибки.
-    }
+    } catch {}
 
     throw new Error(message);
   }

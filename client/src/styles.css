@@ -73,8 +73,6 @@ dd {
   padding: 28px 32px 56px;
 }
 
-/* Header */
-
 .app-header {
   position: relative;
   display: flex;
@@ -159,8 +157,6 @@ dd {
   gap: 10px;
   flex: 0 0 auto;
 }
-
-/* Buttons */
 
 .btn {
   display: inline-flex;
@@ -276,8 +272,6 @@ dd {
   height: 14px;
 }
 
-/* Summary */
-
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
@@ -325,8 +319,6 @@ dd {
 .stat-warn .stat-value {
   color: var(--warning);
 }
-
-/* Toolbar */
 
 .toolbar {
   display: flex;
@@ -425,8 +417,6 @@ dd {
   appearance: none;
 }
 
-/* Banners and states */
-
 .banner {
   display: flex;
   align-items: flex-start;
@@ -493,8 +483,6 @@ dd {
     transform: rotate(360deg);
   }
 }
-
-/* Computer cards */
 
 .cards-grid {
   display: grid;
@@ -690,8 +678,6 @@ dd {
   font-size: 0.83rem;
 }
 
-/* Devices table */
-
 .table-wrap {
   overflow-x: auto;
   border: 1px solid var(--border);
@@ -799,8 +785,6 @@ dd {
   white-space: nowrap;
 }
 
-/* Empty state */
-
 .empty-state {
   padding: 56px 24px;
   border: 1px dashed var(--border-warm);
@@ -839,16 +823,12 @@ dd {
   line-height: 1.5;
 }
 
-/* Footer */
-
 .app-footer {
   margin-top: 38px;
   color: var(--muted);
   font-size: 0.78rem;
   text-align: center;
 }
-
-/* Modal */
 
 .modal-overlay {
   position: fixed;
@@ -946,8 +926,6 @@ dd {
   }
 }
 
-/* Forms */
-
 .form-section + .form-section {
   margin-top: 22px;
   padding-top: 20px;
@@ -1031,8 +1009,6 @@ dd {
   line-height: 1.45;
 }
 
-/* Toast */
-
 .toast {
   position: fixed;
   right: 24px;
@@ -1061,8 +1037,6 @@ dd {
     transform: translateY(10px);
   }
 }
-
-/* Responsive */
 
 @media (max-width: 980px) {
   .app-shell {
