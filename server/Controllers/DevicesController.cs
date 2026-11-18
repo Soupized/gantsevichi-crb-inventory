@@ -16,6 +16,7 @@ public class DevicesController(AppDbContext db) : ControllerBase
         [FromQuery] string? search,
         [FromQuery] int? computerId,
         [FromQuery] DeviceType? type,
+        [FromQuery] EquipmentStatus? status,
         [FromQuery] bool? unassigned)
     {
         var query = db.Devices
@@ -42,6 +43,11 @@ public class DevicesController(AppDbContext db) : ControllerBase
         if (type.HasValue)
         {
             query = query.Where(d => d.Type == type.Value);
+        }
+
+        if (status.HasValue)
+        {
+            query = query.Where(d => d.Status == status.Value);
         }
 
         if (unassigned == true)
@@ -170,13 +176,13 @@ public class DevicesController(AppDbContext db) : ControllerBase
 
     private ActionResult DuplicateInventoryNumber()
     {
-        ModelState.AddModelError(nameof(DeviceInput.InventoryNumber), "Этот инвентарный номер уже используется");
+        ModelState.AddModelError(nameof(DeviceInput.InventoryNumber), "???? ??????????? ????? ??? ????????????");
         return ValidationProblem(ModelState);
     }
 
     private ActionResult ComputerNotFound()
     {
-        ModelState.AddModelError(nameof(DeviceInput.ComputerId), "Выбранный компьютер не найден");
+        ModelState.AddModelError(nameof(DeviceInput.ComputerId), "????????? ????????? ?? ??????");
         return ValidationProblem(ModelState);
     }
 
@@ -191,6 +197,9 @@ public class DevicesController(AppDbContext db) : ControllerBase
         device.Model = Clean(input.Model);
         device.SerialNumber = Clean(input.SerialNumber);
         device.ComputerId = input.ComputerId;
+        device.Status = input.Status;
+        device.DecommissionedOn = input.DecommissionedOn;
+        device.DecommissionReason = Clean(input.DecommissionReason);
         device.Notes = Clean(input.Notes);
     }
 

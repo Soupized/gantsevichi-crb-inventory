@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { DEVICE_TYPES } from "../utils.js";
+import { DEVICE_TYPES, EQUIPMENT_STATUSES } from "../utils.js";
 
 function toFormValues(device, presetComputerId) {
   const computerId =
@@ -16,6 +16,9 @@ function toFormValues(device, presetComputerId) {
     model: device?.model ?? "",
     serialNumber: device?.serialNumber ?? "",
     computerId,
+    status: device?.status ?? "InUse",
+    decommissionedOn: device?.decommissionedOn ?? "",
+    decommissionReason: device?.decommissionReason ?? "",
     notes: device?.notes ?? ""
   };
 }
@@ -35,18 +38,10 @@ export default function DeviceForm({
     setForm((current) => ({ ...current, [field]: event.target.value }));
   };
 
-  const sortedComputers = [...computers].sort((a, b) =>
-    a.inventoryNumber.localeCompare(b.inventoryNumber, "ru")
-  );
-
   const handleSubmit = async (event) => {
     event.preventDefault();
+    setBusy(true);
     setError("");
-
-    if (!form.inventoryNumber.trim()) {
-      setError("Укажите инвентарный номер устройства.");
-      return;
-    }
 
     const payload = {
       inventoryNumber: form.inventoryNumber.trim(),
@@ -55,10 +50,11 @@ export default function DeviceForm({
       model: form.model.trim() || null,
       serialNumber: form.serialNumber.trim() || null,
       computerId: form.computerId ? Number(form.computerId) : null,
+      status: form.status || "InUse",
+      decommissionedOn: form.decommissionedOn || null,
+      decommissionReason: form.decommissionReason.trim() || null,
       notes: form.notes.trim() || null
     };
-
-    setBusy(true);
 
     try {
       await onSubmit(payload);
@@ -73,113 +69,122 @@ export default function DeviceForm({
       {error && <div className="form-error">{error}</div>}
 
       <section className="form-section">
-        <h3>Устройство</h3>
+        <h3>??????????</h3>
         <div className="form-grid">
-          <div className="form-field">
-            <label htmlFor="device-inventory">
-              Инвентарный номер <span className="req">*</span>
-            </label>
-            <input
-              id="device-inventory"
-              value={form.inventoryNumber}
-              onChange={update("inventoryNumber")}
-              maxLength={50}
-              required
-              autoFocus
-              placeholder="Например, МОН-0012"
-            />
-          </div>
-
-          <div className="form-field">
-            <label htmlFor="device-type">Тип устройства</label>
-            <select id="device-type" value={form.type} onChange={update("type")}>
+          <label className="form-field">
+            <span>??? <span className="req">*</span></span>
+            <select required value={form.type} onChange={update("type")}>
               {DEVICE_TYPES.map((type) => (
                 <option key={type.value} value={type.value}>
                   {type.label}
                 </option>
               ))}
             </select>
-          </div>
+          </label>
 
-          <div className="form-field">
-            <label htmlFor="device-manufacturer">Производитель</label>
+          <label className="form-field">
+            <span>??????</span>
+            <select value={form.status} onChange={update("status")}>
+              {EQUIPMENT_STATUSES.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="form-field">
+            <span>??????????? ????? <span className="req">*</span></span>
             <input
-              id="device-manufacturer"
+              required
+              value={form.inventoryNumber}
+              onChange={update("inventoryNumber")}
+              placeholder="????????, ???-014"
+              autoFocus
+            />
+          </label>
+
+          <label className="form-field">
+            <span>?????????????</span>
+            <input
               value={form.manufacturer}
               onChange={update("manufacturer")}
-              maxLength={150}
-              placeholder="Например, Logitech"
+              placeholder="AOC, Logitech, HP..."
             />
-          </div>
+          </label>
 
-          <div className="form-field">
-            <label htmlFor="device-model">Модель</label>
+          <label className="form-field">
+            <span>??????</span>
             <input
-              id="device-model"
               value={form.model}
               onChange={update("model")}
-              maxLength={150}
-              placeholder="Например, M185"
+              placeholder="?????? ??????????"
             />
-          </div>
+          </label>
 
-          <div className="form-field">
-            <label htmlFor="device-serial">Серийный номер</label>
+          <label className="form-field">
+            <span>???????? ?????</span>
             <input
-              id="device-serial"
               value={form.serialNumber}
               onChange={update("serialNumber")}
-              maxLength={150}
-              placeholder="Необязательно"
+              placeholder="??? ???????"
             />
-          </div>
+          </label>
 
-          <div className="form-field">
-            <label htmlFor="device-computer">Компьютер</label>
-            <select
-              id="device-computer"
-              value={form.computerId}
-              onChange={update("computerId")}
-              disabled={sortedComputers.length === 0}
-            >
-              <option value="">Без привязки</option>
-              {sortedComputers.map((computer) => (
+          <label className="form-field">
+            <span>???? ???????? / ??????</span>
+            <input
+              type="date"
+              value={form.decommissionedOn}
+              onChange={update("decommissionedOn")}
+            />
+          </label>
+
+          <label className="form-field full">
+            <span>??????? ???????? / ??????</span>
+            <input
+              value={form.decommissionReason}
+              onChange={update("decommissionReason")}
+              placeholder="?????????????, ????????? ?????, ????????..."
+            />
+          </label>
+        </div>
+      </section>
+
+      <section className="form-section">
+        <h3>????????</h3>
+        <div className="form-grid">
+          <label className="form-field full">
+            <span>?????????</span>
+            <select value={form.computerId} onChange={update("computerId")}>
+              <option value="">??? ???????? (?? ??????)</option>
+              {computers.map((computer) => (
                 <option key={computer.id} value={computer.id}>
-                  № {computer.inventoryNumber}
-                  {computer.model ? ` — ${computer.model}` : ""}
+                  ? {computer.inventoryNumber}
+                  {computer.model ? ` ? ${computer.model}` : ""}
                 </option>
               ))}
             </select>
-            {sortedComputers.length === 0 && (
-              <span className="form-hint">
-                Компьютеры ещё не добавлены — устройство можно сохранить без привязки.
-              </span>
-            )}
-          </div>
+            <span className="form-hint">
+              ???????? ???? ?????????, ???? ?????????? ???? ?? ?????????? ? ??????????.
+            </span>
+          </label>
 
-          <div className="form-field full">
-            <label htmlFor="device-notes">Примечание</label>
+          <label className="form-field full">
+            <span>??????????</span>
             <textarea
-              id="device-notes"
               value={form.notes}
               onChange={update("notes")}
-              maxLength={1000}
-              placeholder="Необязательная информация об устройстве"
+              placeholder="?????????, ???????????, ?????????????..."
             />
-          </div>
+          </label>
         </div>
       </section>
 
       <div className="modal-actions">
         <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={busy}>
-          Отмена
+          ??????
         </button>
         <button type="submit" className="btn btn-primary" disabled={busy}>
-          {busy
-            ? "Сохранение…"
-            : initial
-              ? "Сохранить изменения"
-              : "Добавить устройство"}
+          {busy ? "??????????..." : initial ? "????????? ?????????" : "???????? ??????????"}
         </button>
       </div>
     </form>

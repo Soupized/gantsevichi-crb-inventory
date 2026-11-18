@@ -1,4 +1,4 @@
-import { deviceLabel } from "../utils.js";
+import { deviceLabel, formatDate, statusLabel } from "../utils.js";
 import { PencilIcon, TrashIcon } from "./Icons.jsx";
 
 export default function DeviceTable({ devices, onEdit, onDelete }) {
@@ -7,12 +7,14 @@ export default function DeviceTable({ devices, onEdit, onDelete }) {
       <table className="device-table">
         <thead>
           <tr>
-            <th>Тип</th>
-            <th>Инвентарный №</th>
-            <th>Модель</th>
-            <th>Серийный №</th>
-            <th>Привязано к компьютеру</th>
-            <th className="actions-col">Действия</th>
+            <th>???</th>
+            <th>???. ?</th>
+            <th>??????</th>
+            <th>??????</th>
+            <th>???????? ?</th>
+            <th>?????????</th>
+            <th>????????</th>
+            <th className="actions-col">????????</th>
           </tr>
         </thead>
         <tbody>
@@ -27,30 +29,41 @@ export default function DeviceTable({ devices, onEdit, onDelete }) {
                 <strong>{device.inventoryNumber}</strong>
               </td>
               <td>
-                {[device.manufacturer, device.model].filter(Boolean).join(" ") || "—"}
+                <span className={`status-badge status-${(device.status || "InUse").toLowerCase()}`}>
+                  {statusLabel(device.status)}
+                </span>
               </td>
-              <td className="muted">{device.serialNumber || "—"}</td>
+              <td>
+                {[device.manufacturer, device.model].filter(Boolean).join(" ") || "?"}
+              </td>
+              <td className="muted">{device.serialNumber || "?"}</td>
               <td>
                 {device.computerInventoryNumber ? (
-                  <span className="linked-pc">№ {device.computerInventoryNumber}</span>
+                  <span className="linked-pc">? {device.computerInventoryNumber}</span>
                 ) : (
-                  <span className="muted">Без привязки</span>
+                  <span className="muted">??? ????????</span>
                 )}
+              </td>
+              <td className="muted">
+                {device.decommissionedOn ? formatDate(device.decommissionedOn) : "?"}
+                {device.decommissionReason ? (
+                  <div className="small-note" title={device.decommissionReason}>{device.decommissionReason}</div>
+                ) : null}
               </td>
               <td>
                 <div className="row-actions">
                   <button
                     className="icon-btn"
-                    title="Редактировать устройство"
-                    aria-label="Редактировать устройство"
+                    title="????????????? ??????????"
+                    aria-label="????????????? ??????????"
                     onClick={() => onEdit(device)}
                   >
                     <PencilIcon />
                   </button>
                   <button
                     className="icon-btn danger"
-                    title="Удалить устройство"
-                    aria-label="Удалить устройство"
+                    title="??????? ??????????"
+                    aria-label="??????? ??????????"
                     onClick={() => onDelete(device)}
                   >
                     <TrashIcon />

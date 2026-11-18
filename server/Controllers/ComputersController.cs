@@ -12,7 +12,9 @@ namespace LibraryInventory.Api.Controllers;
 public class ComputersController(AppDbContext db) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ComputerDto>>> GetAll([FromQuery] string? search)
+    public async Task<ActionResult<IEnumerable<ComputerDto>>> GetAll(
+        [FromQuery] string? search,
+        [FromQuery] EquipmentStatus? status)
     {
         var query = db.Computers
             .AsNoTracking()
@@ -31,6 +33,11 @@ public class ComputersController(AppDbContext db) : ControllerBase
                 (c.Location != null && EF.Functions.Like(c.Location, pattern)) ||
                 (c.AssignedTo != null && EF.Functions.Like(c.AssignedTo, pattern)) ||
                 c.Devices.Any(d => EF.Functions.Like(d.InventoryNumber, pattern)));
+        }
+
+        if (status.HasValue)
+        {
+            query = query.Where(c => c.Status == status.Value);
         }
 
         var computers = await query
@@ -143,7 +150,7 @@ public class ComputersController(AppDbContext db) : ControllerBase
 
     private ActionResult DuplicateInventoryNumber()
     {
-        ModelState.AddModelError(nameof(ComputerInput.InventoryNumber), "Этот инвентарный номер уже используется");
+        ModelState.AddModelError(nameof(ComputerInput.InventoryNumber), "???? ??????????? ????? ??? ????????????");
         return ValidationProblem(ModelState);
     }
 
@@ -163,6 +170,9 @@ public class ComputersController(AppDbContext db) : ControllerBase
         computer.Location = Clean(input.Location);
         computer.AssignedTo = Clean(input.AssignedTo);
         computer.CommissionedOn = input.CommissionedOn;
+        computer.Status = input.Status;
+        computer.DecommissionedOn = input.DecommissionedOn;
+        computer.DecommissionReason = Clean(input.DecommissionReason);
         computer.Notes = Clean(input.Notes);
     }
 

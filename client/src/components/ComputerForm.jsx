@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { EQUIPMENT_STATUSES } from "../utils.js";
 
 function toFormValues(computer) {
   return {
@@ -13,6 +14,9 @@ function toFormValues(computer) {
     location: computer?.location ?? "",
     assignedTo: computer?.assignedTo ?? "",
     commissionedOn: computer?.commissionedOn ?? "",
+    status: computer?.status ?? "InUse",
+    decommissionedOn: computer?.decommissionedOn ?? "",
+    decommissionReason: computer?.decommissionReason ?? "",
     notes: computer?.notes ?? ""
   };
 }
@@ -28,12 +32,8 @@ export default function ComputerForm({ initial, onSubmit, onCancel }) {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    setBusy(true);
     setError("");
-
-    if (!form.inventoryNumber.trim()) {
-      setError("Укажите инвентарный номер компьютера.");
-      return;
-    }
 
     const payload = {
       inventoryNumber: form.inventoryNumber.trim(),
@@ -47,10 +47,11 @@ export default function ComputerForm({ initial, onSubmit, onCancel }) {
       location: form.location.trim() || null,
       assignedTo: form.assignedTo.trim() || null,
       commissionedOn: form.commissionedOn || null,
+      status: form.status || "InUse",
+      decommissionedOn: form.decommissionedOn || null,
+      decommissionReason: form.decommissionReason.trim() || null,
       notes: form.notes.trim() || null
     };
-
-    setBusy(true);
 
     try {
       await onSubmit(payload);
@@ -65,164 +66,164 @@ export default function ComputerForm({ initial, onSubmit, onCancel }) {
       {error && <div className="form-error">{error}</div>}
 
       <section className="form-section">
-        <h3>Основные сведения</h3>
+        <h3>???????? ??????</h3>
         <div className="form-grid">
-          <div className="form-field">
-            <label htmlFor="computer-inventory">
-              Инвентарный номер <span className="req">*</span>
-            </label>
+          <label className="form-field">
+            <span>??????????? ????? <span className="req">*</span></span>
             <input
-              id="computer-inventory"
+              required
               value={form.inventoryNumber}
               onChange={update("inventoryNumber")}
-              maxLength={50}
-              required
+              placeholder="????????, ??-001"
               autoFocus
-              placeholder="Например, ПК-0001"
             />
-          </div>
+          </label>
 
-          <div className="form-field">
-            <label htmlFor="computer-model">Модель</label>
+          <label className="form-field">
+            <span>??????</span>
+            <select value={form.status} onChange={update("status")}>
+              {EQUIPMENT_STATUSES.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="form-field">
+            <span>?????? / ??????</span>
             <input
-              id="computer-model"
               value={form.model}
               onChange={update("model")}
-              maxLength={150}
-              placeholder="Например, Lenovo ThinkCentre"
+              placeholder="???????? ??????????"
             />
-          </div>
+          </label>
 
-          <div className="form-field">
-            <label htmlFor="computer-location">Кабинет / отдел</label>
+          <label className="form-field">
+            <span>???????????? ???????</span>
             <input
-              id="computer-location"
-              value={form.location}
-              onChange={update("location")}
-              maxLength={150}
-              placeholder="Например, читальный зал"
-            />
-          </div>
-
-          <div className="form-field">
-            <label htmlFor="computer-assigned">Ответственный</label>
-            <input
-              id="computer-assigned"
-              value={form.assignedTo}
-              onChange={update("assignedTo")}
-              maxLength={150}
-              placeholder="ФИО сотрудника"
-            />
-          </div>
-        </div>
-      </section>
-
-      <section className="form-section">
-        <h3>Комплектующие</h3>
-        <div className="form-grid">
-          <div className="form-field">
-            <label htmlFor="computer-cpu">Процессор</label>
-            <input
-              id="computer-cpu"
-              value={form.processor}
-              onChange={update("processor")}
-              maxLength={200}
-              placeholder="Например, Intel Core i5-12400"
-            />
-          </div>
-
-          <div className="form-field">
-            <label htmlFor="computer-gpu">Видеокарта</label>
-            <input
-              id="computer-gpu"
-              value={form.graphicsCard}
-              onChange={update("graphicsCard")}
-              maxLength={200}
-              placeholder="Например, Intel UHD Graphics 730"
-            />
-          </div>
-
-          <div className="form-field">
-            <label htmlFor="computer-ram">Объём ОЗУ, ГБ</label>
-            <input
-              id="computer-ram"
-              type="number"
-              min="0"
-              max="4096"
-              step="1"
-              value={form.ramGb}
-              onChange={update("ramGb")}
-              placeholder="16"
-            />
-          </div>
-
-          <div className="form-field">
-            <label htmlFor="computer-storage">Накопитель</label>
-            <input
-              id="computer-storage"
-              value={form.storage}
-              onChange={update("storage")}
-              maxLength={200}
-              placeholder="Например, SSD 512 ГБ"
-            />
-          </div>
-
-          <div className="form-field">
-            <label htmlFor="computer-motherboard">Материнская плата</label>
-            <input
-              id="computer-motherboard"
-              value={form.motherboard}
-              onChange={update("motherboard")}
-              maxLength={200}
-              placeholder="Например, ASUS H610M"
-            />
-          </div>
-
-          <div className="form-field">
-            <label htmlFor="computer-os">Операционная система</label>
-            <input
-              id="computer-os"
               value={form.operatingSystem}
               onChange={update("operatingSystem")}
-              maxLength={150}
-              placeholder="Например, Windows 11 Pro"
+              placeholder="Windows 11, Astra Linux..."
             />
-          </div>
-        </div>
-      </section>
+          </label>
 
-      <section className="form-section">
-        <h3>Дополнительно</h3>
-        <div className="form-grid">
-          <div className="form-field">
-            <label htmlFor="computer-date">Дата ввода в эксплуатацию</label>
+          <label className="form-field">
+            <span>????????????</span>
             <input
-              id="computer-date"
+              value={form.location}
+              onChange={update("location")}
+              placeholder="???????, ????????? ???..."
+            />
+          </label>
+
+          <label className="form-field">
+            <span>?????????????</span>
+            <input
+              value={form.assignedTo}
+              onChange={update("assignedTo")}
+              placeholder="??? ??????????"
+            />
+          </label>
+
+          <label className="form-field">
+            <span>???? ????? ? ????????????</span>
+            <input
               type="date"
               value={form.commissionedOn}
               onChange={update("commissionedOn")}
             />
-          </div>
+          </label>
 
-          <div className="form-field full">
-            <label htmlFor="computer-notes">Примечание</label>
-            <textarea
-              id="computer-notes"
-              value={form.notes}
-              onChange={update("notes")}
-              maxLength={1000}
-              placeholder="Необязательная информация о компьютере"
+          <label className="form-field">
+            <span>???? ???????? / ??????</span>
+            <input
+              type="date"
+              value={form.decommissionedOn}
+              onChange={update("decommissionedOn")}
             />
-          </div>
+            <span className="form-hint">??? ?????????, ?? ?????? ??? ? ??????? (??? ?????????????)</span>
+          </label>
+
+          <label className="form-field full">
+            <span>??????? ???????? / ??????</span>
+            <input
+              value={form.decommissionReason}
+              onChange={update("decommissionReason")}
+              placeholder="?????????????, ????????? ?????, ????????..."
+            />
+          </label>
         </div>
+      </section>
+
+      <section className="form-section">
+        <h3>?????????????</h3>
+        <div className="form-grid">
+          <label className="form-field">
+            <span>?????????</span>
+            <input
+              value={form.processor}
+              onChange={update("processor")}
+              placeholder="Intel Core i5, AMD Ryzen..."
+            />
+          </label>
+
+          <label className="form-field">
+            <span>??????????</span>
+            <input
+              value={form.graphicsCard}
+              onChange={update("graphicsCard")}
+              placeholder="??????????, NVIDIA, AMD..."
+            />
+          </label>
+
+          <label className="form-field">
+            <span>??????????? ?????? (??)</span>
+            <input
+              type="number"
+              min="0"
+              max="4096"
+              value={form.ramGb}
+              onChange={update("ramGb")}
+              placeholder="8"
+            />
+          </label>
+
+          <label className="form-field">
+            <span>??????????</span>
+            <input
+              value={form.storage}
+              onChange={update("storage")}
+              placeholder="SSD 512 ??, HDD 1 ??..."
+            />
+          </label>
+
+          <label className="form-field full">
+            <span>??????????? ?????</span>
+            <input
+              value={form.motherboard}
+              onChange={update("motherboard")}
+              placeholder="?????? ??????????? ?????"
+            />
+          </label>
+        </div>
+      </section>
+
+      <section className="form-section">
+        <h3>??????????</h3>
+        <label className="form-field full">
+          <textarea
+            value={form.notes}
+            onChange={update("notes")}
+            placeholder="????? ?????????????? ??????????"
+          />
+        </label>
       </section>
 
       <div className="modal-actions">
         <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={busy}>
-          Отмена
+          ??????
         </button>
         <button type="submit" className="btn btn-primary" disabled={busy}>
-          {busy ? "Сохранение…" : initial ? "Сохранить изменения" : "Добавить компьютер"}
+          {busy ? "??????????..." : initial ? "????????? ?????????" : "???????? ?????????"}
         </button>
       </div>
     </form>

@@ -14,6 +14,9 @@ public class Computer
     public string? Location { get; set; }
     public string? AssignedTo { get; set; }
     public DateOnly? CommissionedOn { get; set; }
+    public EquipmentStatus Status { get; set; } = EquipmentStatus.InUse;
+    public DateOnly? DecommissionedOn { get; set; }
+    public string? DecommissionReason { get; set; }
     public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }

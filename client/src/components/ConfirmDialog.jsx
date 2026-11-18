@@ -30,10 +30,10 @@ export default function ConfirmDialog({ config, onClose }) {
 
       <div className="modal-actions">
         <button className="btn btn-secondary" onClick={onClose} disabled={busy}>
-          Отмена
+          ??????
         </button>
         <button className="btn btn-danger" onClick={handleConfirm} disabled={busy}>
-          {busy ? "Удаление…" : config.confirmLabel || "Удалить"}
+          {busy ? "??????????..." : config.confirmLabel || "???????????"}
         </button>
       </div>
     </Modal>

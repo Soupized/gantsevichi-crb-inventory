@@ -26,6 +26,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(c => c.OperatingSystem).HasMaxLength(150);
             entity.Property(c => c.Location).HasMaxLength(150);
             entity.Property(c => c.AssignedTo).HasMaxLength(150);
+            entity.Property(c => c.Status).HasConversion<string>().HasMaxLength(30).HasDefaultValue(EquipmentStatus.InUse);
+            entity.Property(c => c.DecommissionReason).HasMaxLength(500);
             entity.Property(c => c.Notes).HasMaxLength(1000);
         });
 
@@ -41,6 +43,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(d => d.Manufacturer).HasMaxLength(150);
             entity.Property(d => d.Model).HasMaxLength(150);
             entity.Property(d => d.SerialNumber).HasMaxLength(150);
+            entity.Property(d => d.Status).HasConversion<string>().HasMaxLength(30).HasDefaultValue(EquipmentStatus.InUse);
+            entity.Property(d => d.DecommissionReason).HasMaxLength(500);
             entity.Property(d => d.Notes).HasMaxLength(1000);
 
             entity.HasOne(d => d.Computer)

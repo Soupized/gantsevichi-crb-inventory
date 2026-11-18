@@ -10,6 +10,9 @@ public class Device
     public string? SerialNumber { get; set; }
     public int? ComputerId { get; set; }
     public Computer? Computer { get; set; }
+    public EquipmentStatus Status { get; set; } = EquipmentStatus.InUse;
+    public DateOnly? DecommissionedOn { get; set; }
+    public string? DecommissionReason { get; set; }
     public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }

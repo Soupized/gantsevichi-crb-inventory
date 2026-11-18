@@ -1154,3 +1154,88 @@ dd {
     transition-duration: 0.01ms !important;
   }
 }
+
+
+/* --- status, data modal, additions --- */
+.btn-header {
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  color: #ffffff;
+}
+.btn-header:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  border-radius: 7px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.status-inuse { color: #166534; background: #e7f6e9; }
+.status-inrepair { color: #92400e; background: #fdf0dd; }
+.status-instock { color: #1d4ed8; background: #e4efff; }
+.status-writtenoff { color: #7a271a; background: #fff1f0; }
+
+.small-note {
+  font-size: 0.75rem;
+  color: var(--muted);
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.modal-wide {
+  width: min(900px, 100%);
+}
+
+.data-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.data-section {
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+.data-section h3 {
+  margin-bottom: 6px;
+  font-size: 0.95rem;
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.data-section .form-hint {
+  margin-bottom: 12px;
+}
+.data-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.import-help {
+  margin-top: 12px;
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+.import-help summary {
+  cursor: pointer;
+  color: var(--primary-dark);
+  font-weight: 600;
+}
+.import-help p {
+  margin: 6px 0;
+  line-height: 1.45;
+}
+
+.card-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.card-title-row .status-badge { margin-left: 0; }

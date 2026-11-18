@@ -2,8 +2,6 @@ using System.Text.Json.Serialization;
 using LibraryInventory.Api.Data;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -51,8 +49,8 @@ app.MapControllers();
 
 app.Map("/error", (HttpContext context) =>
     Results.Problem(
-        title: "Не удалось выполнить запрос",
-        detail: "Произошла внутренняя ошибка сервера. Попробуйте ещё раз.",
+        title: "?? ??????? ?????????? ??????",
+        detail: "????????? ?????????? ?????? ???????. ?????????? ??? ???.",
         statusCode: StatusCodes.Status500InternalServerError));
 
 var webRoot = app.Environment.WebRootPath
@@ -84,6 +82,7 @@ static async Task ApplyDatabaseMigrationsAsync(IServiceProvider services)
     var pending = (await db.Database.GetPendingMigrationsAsync()).ToList();
     if (pending.Count == 0)
     {
+        await EnsureSqliteWalModeAsync(db);
         return;
     }
 
@@ -94,11 +93,13 @@ static async Task ApplyDatabaseMigrationsAsync(IServiceProvider services)
         pending = (await db.Database.GetPendingMigrationsAsync()).ToList();
         if (pending.Count == 0)
         {
+            await EnsureSqliteWalModeAsync(db);
             return;
         }
     }
 
     await db.Database.MigrateAsync();
+    await EnsureSqliteWalModeAsync(db);
 }
 
 static async Task<bool> HasLegacySchemaAsync(AppDbContext db)
@@ -150,4 +151,31 @@ static async Task BaselineInitialMigrationAsync(AppDbContext db)
         "VALUES ({0}, {1});",
         initialMigration,
         "8.0.28");
+}
+
+static async Task EnsureSqliteWalModeAsync(AppDbContext db)
+{
+    await using var connection = db.Database.GetDbConnection();
+    var shouldClose = connection.State != System.Data.ConnectionState.Open;
+    if (shouldClose)
+    {
+        await connection.OpenAsync();
+    }
+
+    try
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = "PRAGMA journal_mode=WAL;";
+        await command.ExecuteNonQueryAsync();
+        await using var fk = connection.CreateCommand();
+        fk.CommandText = "PRAGMA foreign_keys=ON;";
+        await fk.ExecuteNonQueryAsync();
+    }
+    finally
+    {
+        if (shouldClose)
+        {
+            await connection.CloseAsync();
+        }
+    }
 }
