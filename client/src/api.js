@@ -1,13 +1,19 @@
 const BASE_URL = "/api";
 
 async function request(path, options = {}) {
-  const response = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {})
-    }
-  });
+  let response;
+
+  try {
+    response = await fetch(`${BASE_URL}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {})
+      }
+    });
+  } catch {
+    throw new Error("Не удалось подключиться к серверу. Проверьте, запущено ли приложение.");
+  }
 
   if (!response.ok) {
     let message = `Ошибка запроса (${response.status})`;

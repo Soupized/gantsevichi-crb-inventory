@@ -2,6 +2,7 @@ using LibraryInventory.Api.Data;
 using LibraryInventory.Api.Dtos;
 using LibraryInventory.Api.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace LibraryInventory.Api.Controllers;
@@ -24,13 +25,13 @@ public class DevicesController(AppDbContext db) : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = search.Trim().ToLower();
+            var pattern = $"%{search.Trim()}%";
             query = query.Where(d =>
-                d.InventoryNumber.ToLower().Contains(term) ||
-                (d.Manufacturer != null && d.Manufacturer.ToLower().Contains(term)) ||
-                (d.Model != null && d.Model.ToLower().Contains(term)) ||
-                (d.SerialNumber != null && d.SerialNumber.ToLower().Contains(term)) ||
-                (d.Computer != null && d.Computer.InventoryNumber.ToLower().Contains(term)));
+                EF.Functions.Like(d.InventoryNumber, pattern) ||
+                (d.Manufacturer != null && EF.Functions.Like(d.Manufacturer, pattern)) ||
+                (d.Model != null && EF.Functions.Like(d.Model, pattern)) ||
+                (d.SerialNumber != null && EF.Functions.Like(d.SerialNumber, pattern)) ||
+                (d.Computer != null && EF.Functions.Like(d.Computer.InventoryNumber, pattern)));
         }
 
         if (computerId.HasValue)
@@ -70,14 +71,12 @@ public class DevicesController(AppDbContext db) : ControllerBase
 
         if (await InventoryNumberExistsAsync(number))
         {
-            ModelState.AddModelError(nameof(input.InventoryNumber), "Этот инвентарный номер уже используется");
-            return ValidationProblem(ModelState);
+            return DuplicateInventoryNumber();
         }
 
         if (!await ComputerExistsAsync(input.ComputerId))
         {
-            ModelState.AddModelError(nameof(input.ComputerId), "Выбранный компьютер не найден");
-            return ValidationProblem(ModelState);
+            return ComputerNotFound();
         }
 
         var device = new Device
@@ -88,7 +87,14 @@ public class DevicesController(AppDbContext db) : ControllerBase
         Apply(device, input);
 
         db.Devices.Add(device);
-        await db.SaveChangesAsync();
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
+        {
+            return DuplicateInventoryNumber();
+        }
 
         var created = await FindDeviceAsync(device.Id);
         return CreatedAtAction(nameof(GetById), new { id = device.Id }, created!.ToDto());
@@ -109,20 +115,25 @@ public class DevicesController(AppDbContext db) : ControllerBase
         if (await db.Computers.AnyAsync(c => c.InventoryNumber == number) ||
             await db.Devices.AnyAsync(d => d.Id != id && d.InventoryNumber == number))
         {
-            ModelState.AddModelError(nameof(input.InventoryNumber), "Этот инвентарный номер уже используется");
-            return ValidationProblem(ModelState);
+            return DuplicateInventoryNumber();
         }
 
         if (!await ComputerExistsAsync(input.ComputerId))
         {
-            ModelState.AddModelError(nameof(input.ComputerId), "Выбранный компьютер не найден");
-            return ValidationProblem(ModelState);
+            return ComputerNotFound();
         }
 
         Apply(device, input);
         device.UpdatedAt = DateTime.UtcNow;
 
-        await db.SaveChangesAsync();
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
+        {
+            return DuplicateInventoryNumber();
+        }
 
         var updated = await FindDeviceAsync(device.Id);
         return Ok(updated!.ToDto());
@@ -156,6 +167,21 @@ public class DevicesController(AppDbContext db) : ControllerBase
     private async Task<bool> InventoryNumberExistsAsync(string number) =>
         await db.Computers.AnyAsync(c => c.InventoryNumber == number) ||
         await db.Devices.AnyAsync(d => d.InventoryNumber == number);
+
+    private ActionResult DuplicateInventoryNumber()
+    {
+        ModelState.AddModelError(nameof(DeviceInput.InventoryNumber), "Этот инвентарный номер уже используется");
+        return ValidationProblem(ModelState);
+    }
+
+    private ActionResult ComputerNotFound()
+    {
+        ModelState.AddModelError(nameof(DeviceInput.ComputerId), "Выбранный компьютер не найден");
+        return ValidationProblem(ModelState);
+    }
+
+    private static bool IsUniqueConstraintViolation(DbUpdateException ex) =>
+        ex.InnerException is SqliteException { SqliteErrorCode: 19 };
 
     private static void Apply(Device device, DeviceInput input)
     {

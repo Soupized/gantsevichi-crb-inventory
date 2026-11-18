@@ -2,6 +2,7 @@ using LibraryInventory.Api.Data;
 using LibraryInventory.Api.Dtos;
 using LibraryInventory.Api.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace LibraryInventory.Api.Controllers;
@@ -20,16 +21,16 @@ public class ComputersController(AppDbContext db) : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = search.Trim().ToLower();
+            var pattern = $"%{search.Trim()}%";
             query = query.Where(c =>
-                c.InventoryNumber.ToLower().Contains(term) ||
-                (c.Model != null && c.Model.ToLower().Contains(term)) ||
-                (c.Processor != null && c.Processor.ToLower().Contains(term)) ||
-                (c.GraphicsCard != null && c.GraphicsCard.ToLower().Contains(term)) ||
-                (c.OperatingSystem != null && c.OperatingSystem.ToLower().Contains(term)) ||
-                (c.Location != null && c.Location.ToLower().Contains(term)) ||
-                (c.AssignedTo != null && c.AssignedTo.ToLower().Contains(term)) ||
-                c.Devices.Any(d => d.InventoryNumber.ToLower().Contains(term)));
+                EF.Functions.Like(c.InventoryNumber, pattern) ||
+                (c.Model != null && EF.Functions.Like(c.Model, pattern)) ||
+                (c.Processor != null && EF.Functions.Like(c.Processor, pattern)) ||
+                (c.GraphicsCard != null && EF.Functions.Like(c.GraphicsCard, pattern)) ||
+                (c.OperatingSystem != null && EF.Functions.Like(c.OperatingSystem, pattern)) ||
+                (c.Location != null && EF.Functions.Like(c.Location, pattern)) ||
+                (c.AssignedTo != null && EF.Functions.Like(c.AssignedTo, pattern)) ||
+                c.Devices.Any(d => EF.Functions.Like(d.InventoryNumber, pattern)));
         }
 
         var computers = await query
@@ -57,8 +58,7 @@ public class ComputersController(AppDbContext db) : ControllerBase
 
         if (await InventoryNumberExistsAsync(number))
         {
-            ModelState.AddModelError(nameof(input.InventoryNumber), "Этот инвентарный номер уже используется");
-            return ValidationProblem(ModelState);
+            return DuplicateInventoryNumber();
         }
 
         var computer = new Computer
@@ -69,9 +69,21 @@ public class ComputersController(AppDbContext db) : ControllerBase
         Apply(computer, input);
 
         db.Computers.Add(computer);
-        await db.SaveChangesAsync();
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
+        {
+            return DuplicateInventoryNumber();
+        }
 
-        return CreatedAtAction(nameof(GetById), new { id = computer.Id }, computer.ToDto());
+        var created = await db.Computers
+            .AsNoTracking()
+            .Include(c => c.Devices)
+            .FirstAsync(c => c.Id == computer.Id);
+
+        return CreatedAtAction(nameof(GetById), new { id = computer.Id }, created.ToDto());
     }
 
     [HttpPut("{id:int}")]
@@ -91,14 +103,20 @@ public class ComputersController(AppDbContext db) : ControllerBase
         if (await db.Computers.AnyAsync(c => c.Id != id && c.InventoryNumber == number) ||
             await db.Devices.AnyAsync(d => d.InventoryNumber == number))
         {
-            ModelState.AddModelError(nameof(input.InventoryNumber), "Этот инвентарный номер уже используется");
-            return ValidationProblem(ModelState);
+            return DuplicateInventoryNumber();
         }
 
         Apply(computer, input);
         computer.UpdatedAt = DateTime.UtcNow;
 
-        await db.SaveChangesAsync();
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
+        {
+            return DuplicateInventoryNumber();
+        }
 
         return Ok(computer.ToDto());
     }
@@ -106,18 +124,11 @@ public class ComputersController(AppDbContext db) : ControllerBase
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var computer = await db.Computers
-            .Include(c => c.Devices)
-            .FirstOrDefaultAsync(c => c.Id == id);
+        var computer = await db.Computers.FirstOrDefaultAsync(c => c.Id == id);
 
         if (computer is null)
         {
             return NotFound();
-        }
-
-        foreach (var device in computer.Devices)
-        {
-            device.ComputerId = null;
         }
 
         db.Computers.Remove(computer);
@@ -129,6 +140,15 @@ public class ComputersController(AppDbContext db) : ControllerBase
     private async Task<bool> InventoryNumberExistsAsync(string number) =>
         await db.Computers.AnyAsync(c => c.InventoryNumber == number) ||
         await db.Devices.AnyAsync(d => d.InventoryNumber == number);
+
+    private ActionResult DuplicateInventoryNumber()
+    {
+        ModelState.AddModelError(nameof(ComputerInput.InventoryNumber), "Этот инвентарный номер уже используется");
+        return ValidationProblem(ModelState);
+    }
+
+    private static bool IsUniqueConstraintViolation(DbUpdateException ex) =>
+        ex.InnerException is SqliteException { SqliteErrorCode: 19 };
 
     private static void Apply(Computer computer, ComputerInput input)
     {
