@@ -5,12 +5,12 @@ export default function ComputerCard({ computer, onEdit, onDelete, onAddDevice }
   const devices = computer.devices ?? [];
 
   const specs = [
-    ["?????????", computer.processor],
-    ["??????????", computer.graphicsCard],
-    ["???", computer.ramGb ? `${computer.ramGb} ??` : null],
-    ["??????????", computer.storage],
-    ["??????????? ?????", computer.motherboard],
-    ["???????????? ???????", computer.operatingSystem]
+    ["Процессор", computer.processor],
+    ["Видеокарта", computer.graphicsCard],
+    ["ОЗУ", computer.ramGb ? `${computer.ramGb} ГБ` : null],
+    ["Накопитель", computer.storage],
+    ["Материнская плата", computer.motherboard],
+    ["Операционная система", computer.operatingSystem]
   ];
 
   return (
@@ -18,26 +18,26 @@ export default function ComputerCard({ computer, onEdit, onDelete, onAddDevice }
       <div className="card-head">
         <div className="card-title">
           <div className="card-title-row">
-            <span className="inv-badge">? {computer.inventoryNumber}</span>
+            <span className="inv-badge">№ {computer.inventoryNumber}</span>
             <span className={`status-badge status-${(computer.status || "InUse").toLowerCase()}`}>
               {statusLabel(computer.status)}
             </span>
           </div>
-          <h3>{computer.model || "?????????"}</h3>
+          <h3>{computer.model || "Компьютер"}</h3>
         </div>
         <div className="card-actions">
           <button
             className="icon-btn"
-            title="????????????? ?????????"
-            aria-label="????????????? ?????????"
+            title="Редактировать компьютер"
+            aria-label="Редактировать компьютер"
             onClick={() => onEdit(computer)}
           >
             <PencilIcon />
           </button>
           <button
             className="icon-btn danger"
-            title="??????? ?????????"
-            aria-label="??????? ?????????"
+            title="Удалить компьютер"
+            aria-label="Удалить компьютер"
             onClick={() => onDelete(computer)}
           >
             <TrashIcon />
@@ -49,7 +49,7 @@ export default function ComputerCard({ computer, onEdit, onDelete, onAddDevice }
         {specs.map(([label, value]) => (
           <div key={label}>
             <dt>{label}</dt>
-            <dd>{value || "?"}</dd>
+            <dd>{value || "—"}</dd>
           </div>
         ))}
       </dl>
@@ -57,31 +57,31 @@ export default function ComputerCard({ computer, onEdit, onDelete, onAddDevice }
       {(computer.location || computer.assignedTo || computer.commissionedOn || computer.decommissionedOn) && (
         <div className="meta-row">
           {computer.location && (
-            <span>???????: <strong>{computer.location}</strong></span>
+            <span>Кабинет: <strong>{computer.location}</strong></span>
           )}
           {computer.assignedTo && (
-            <span>?????????????: <strong>{computer.assignedTo}</strong></span>
+            <span>Ответственный: <strong>{computer.assignedTo}</strong></span>
           )}
           {computer.commissionedOn && (
-            <span>????: <strong>{formatDate(computer.commissionedOn)}</strong></span>
+            <span>Ввод: <strong>{formatDate(computer.commissionedOn)}</strong></span>
           )}
           {computer.decommissionedOn && (
-            <span>????????/?????: <strong>{formatDate(computer.decommissionedOn)}</strong></span>
+            <span>Списание/вывод: <strong>{formatDate(computer.decommissionedOn)}</strong></span>
           )}
         </div>
       )}
 
       {computer.decommissionReason && (
-        <p className="card-notes"><strong>???????:</strong> {computer.decommissionReason}</p>
+        <p className="card-notes"><strong>Причина:</strong> {computer.decommissionReason}</p>
       )}
       {computer.notes && <p className="card-notes">{computer.notes}</p>}
 
       <div className="devices-block">
         <div className="devices-head">
-          <span>?????????: {devices.length}</span>
+          <span>Периферия: {devices.length}</span>
           <button className="link-btn" onClick={() => onAddDevice(computer)}>
             <PlusIcon />
-            ????????
+            Добавить
           </button>
         </div>
 
@@ -92,21 +92,21 @@ export default function ComputerCard({ computer, onEdit, onDelete, onAddDevice }
                 key={device.id}
                 className={`chip chip-${device.type.toLowerCase()}`}
                 title={[
-                  `${deviceLabel(device.type)} ? ${device.inventoryNumber}`,
+                  `${deviceLabel(device.type)} № ${device.inventoryNumber}`,
                   statusLabel(device.status),
                   device.manufacturer,
                   device.model
                 ]
                   .filter(Boolean)
-                  .join(" ? ")}
+                  .join(" · ")}
               >
                 <span className="chip-type">{deviceLabel(device.type)}</span>
-                <span>? {device.inventoryNumber}</span>
+                <span>№ {device.inventoryNumber}</span>
               </span>
             ))}
           </div>
         ) : (
-          <p className="devices-empty">????????? ?? ?????????</p>
+          <p className="devices-empty">Периферия не привязана</p>
         )}
       </div>
     </article>

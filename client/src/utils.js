@@ -1,18 +1,18 @@
 export const DEVICE_TYPES = [
-  { value: "Mouse", label: "????" },
-  { value: "Keyboard", label: "??????????" },
-  { value: "Monitor", label: "???????" },
-  { value: "Printer", label: "???????" },
-  { value: "Scanner", label: "??????" },
-  { value: "Ups", label: "???" },
-  { value: "Other", label: "??????" }
+  { value: "Mouse", label: "Мышь" },
+  { value: "Keyboard", label: "Клавиатура" },
+  { value: "Monitor", label: "Монитор" },
+  { value: "Printer", label: "Принтер" },
+  { value: "Scanner", label: "Сканер" },
+  { value: "Ups", label: "ИБП" },
+  { value: "Other", label: "Другое" }
 ];
 
 export const EQUIPMENT_STATUSES = [
-  { value: "InUse", label: "? ????????????" },
-  { value: "InRepair", label: "? ???????" },
-  { value: "InStock", label: "?? ??????" },
-  { value: "WrittenOff", label: "??????" }
+  { value: "InUse", label: "В эксплуатации" },
+  { value: "InRepair", label: "В ремонте" },
+  { value: "InStock", label: "На складе" },
+  { value: "WrittenOff", label: "Списан" }
 ];
 
 const DEVICE_LABELS = Object.fromEntries(
@@ -24,11 +24,11 @@ const STATUS_LABELS = Object.fromEntries(
 );
 
 export function deviceLabel(type) {
-  return DEVICE_LABELS[type] ?? type ?? "??????";
+  return DEVICE_LABELS[type] ?? type ?? "Другое";
 }
 
 export function statusLabel(status) {
-  return STATUS_LABELS[status] ?? status ?? "?";
+  return STATUS_LABELS[status] ?? status ?? "—";
 }
 
 export function formatDate(value) {
@@ -36,14 +36,4 @@ export function formatDate(value) {
   const [year, month, day] = String(value).split("-");
   if (!year || !month || !day) return String(value);
   return `${day}.${month}.${year}`;
-}
-
-export function matchesSearch(query, values) {
-  const term = query.trim().toLowerCase();
-  if (!term) return true;
-
-  return values.some((value) => {
-    if (value === null || value === undefined) return false;
-    return String(value).toLowerCase().includes(term);
-  });
 }

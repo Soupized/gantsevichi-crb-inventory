@@ -66,21 +66,22 @@ export default function ComputerForm({ initial, onSubmit, onCancel }) {
       {error && <div className="form-error">{error}</div>}
 
       <section className="form-section">
-        <h3>???????? ??????</h3>
+        <h3>Основные данные</h3>
         <div className="form-grid">
           <label className="form-field">
-            <span>??????????? ????? <span className="req">*</span></span>
+            <span>Инвентарный номер <span className="req">*</span></span>
             <input
               required
               value={form.inventoryNumber}
               onChange={update("inventoryNumber")}
-              placeholder="????????, ??-001"
+              placeholder="Например, ПК-001"
               autoFocus
             />
+            <span className="form-hint">Уникален для всех компьютеров и устройств</span>
           </label>
 
           <label className="form-field">
-            <span>??????</span>
+            <span>Статус</span>
             <select value={form.status} onChange={update("status")}>
               {EQUIPMENT_STATUSES.map((s) => (
                 <option key={s.value} value={s.value}>{s.label}</option>
@@ -89,16 +90,16 @@ export default function ComputerForm({ initial, onSubmit, onCancel }) {
           </label>
 
           <label className="form-field">
-            <span>?????? / ??????</span>
+            <span>Модель / сборка</span>
             <input
               value={form.model}
               onChange={update("model")}
-              placeholder="???????? ??????????"
+              placeholder="Название компьютера"
             />
           </label>
 
           <label className="form-field">
-            <span>???????????? ???????</span>
+            <span>Операционная система</span>
             <input
               value={form.operatingSystem}
               onChange={update("operatingSystem")}
@@ -107,25 +108,25 @@ export default function ComputerForm({ initial, onSubmit, onCancel }) {
           </label>
 
           <label className="form-field">
-            <span>????????????</span>
+            <span>Расположение</span>
             <input
               value={form.location}
               onChange={update("location")}
-              placeholder="???????, ????????? ???..."
+              placeholder="Кабинет, читальный зал..."
             />
           </label>
 
           <label className="form-field">
-            <span>?????????????</span>
+            <span>Ответственный</span>
             <input
               value={form.assignedTo}
               onChange={update("assignedTo")}
-              placeholder="??? ??????????"
+              placeholder="ФИО сотрудника"
             />
           </label>
 
           <label className="form-field">
-            <span>???? ????? ? ????????????</span>
+            <span>Дата ввода в эксплуатацию</span>
             <input
               type="date"
               value={form.commissionedOn}
@@ -134,31 +135,31 @@ export default function ComputerForm({ initial, onSubmit, onCancel }) {
           </label>
 
           <label className="form-field">
-            <span>???? ???????? / ??????</span>
+            <span>Дата списания / вывода</span>
             <input
               type="date"
               value={form.decommissionedOn}
               onChange={update("decommissionedOn")}
             />
-            <span className="form-hint">??? ?????????, ?? ?????? ??? ? ??????? (??? ?????????????)</span>
+            <span className="form-hint">Для списанных, на складе или в ремонте (при необходимости)</span>
           </label>
 
           <label className="form-field full">
-            <span>??????? ???????? / ??????</span>
+            <span>Причина списания / вывода</span>
             <input
               value={form.decommissionReason}
               onChange={update("decommissionReason")}
-              placeholder="?????????????, ????????? ?????, ????????..."
+              placeholder="Неисправность, моральный износ, передача..."
             />
           </label>
         </div>
       </section>
 
       <section className="form-section">
-        <h3>?????????????</h3>
+        <h3>Комплектующие</h3>
         <div className="form-grid">
           <label className="form-field">
-            <span>?????????</span>
+            <span>Процессор</span>
             <input
               value={form.processor}
               onChange={update("processor")}
@@ -167,16 +168,16 @@ export default function ComputerForm({ initial, onSubmit, onCancel }) {
           </label>
 
           <label className="form-field">
-            <span>??????????</span>
+            <span>Видеокарта</span>
             <input
               value={form.graphicsCard}
               onChange={update("graphicsCard")}
-              placeholder="??????????, NVIDIA, AMD..."
+              placeholder="Встроенная, NVIDIA, AMD..."
             />
           </label>
 
           <label className="form-field">
-            <span>??????????? ?????? (??)</span>
+            <span>Оперативная память (ГБ)</span>
             <input
               type="number"
               min="0"
@@ -188,42 +189,42 @@ export default function ComputerForm({ initial, onSubmit, onCancel }) {
           </label>
 
           <label className="form-field">
-            <span>??????????</span>
+            <span>Накопитель</span>
             <input
               value={form.storage}
               onChange={update("storage")}
-              placeholder="SSD 512 ??, HDD 1 ??..."
+              placeholder="SSD 512 ГБ, HDD 1 ТБ..."
             />
           </label>
 
           <label className="form-field full">
-            <span>??????????? ?????</span>
+            <span>Материнская плата</span>
             <input
               value={form.motherboard}
               onChange={update("motherboard")}
-              placeholder="?????? ??????????? ?????"
+              placeholder="Модель материнской платы"
             />
           </label>
         </div>
       </section>
 
       <section className="form-section">
-        <h3>??????????</h3>
+        <h3>Примечание</h3>
         <label className="form-field full">
           <textarea
             value={form.notes}
             onChange={update("notes")}
-            placeholder="????? ?????????????? ??????????"
+            placeholder="Любая дополнительная информация"
           />
         </label>
       </section>
 
       <div className="modal-actions">
         <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={busy}>
-          ??????
+          Отмена
         </button>
         <button type="submit" className="btn btn-primary" disabled={busy}>
-          {busy ? "??????????..." : initial ? "????????? ?????????" : "???????? ?????????"}
+          {busy ? "Сохранение..." : initial ? "Сохранить изменения" : "Добавить компьютер"}
         </button>
       </div>
     </form>

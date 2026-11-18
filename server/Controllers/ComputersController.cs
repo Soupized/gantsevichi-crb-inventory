@@ -29,10 +29,17 @@ public class ComputersController(AppDbContext db) : ControllerBase
                 (c.Model != null && EF.Functions.Like(c.Model, pattern)) ||
                 (c.Processor != null && EF.Functions.Like(c.Processor, pattern)) ||
                 (c.GraphicsCard != null && EF.Functions.Like(c.GraphicsCard, pattern)) ||
+                (c.Storage != null && EF.Functions.Like(c.Storage, pattern)) ||
+                (c.Motherboard != null && EF.Functions.Like(c.Motherboard, pattern)) ||
                 (c.OperatingSystem != null && EF.Functions.Like(c.OperatingSystem, pattern)) ||
                 (c.Location != null && EF.Functions.Like(c.Location, pattern)) ||
                 (c.AssignedTo != null && EF.Functions.Like(c.AssignedTo, pattern)) ||
-                c.Devices.Any(d => EF.Functions.Like(d.InventoryNumber, pattern)));
+                (c.DecommissionReason != null && EF.Functions.Like(c.DecommissionReason, pattern)) ||
+                (c.Notes != null && EF.Functions.Like(c.Notes, pattern)) ||
+                c.Devices.Any(d =>
+                    EF.Functions.Like(d.InventoryNumber, pattern) ||
+                    (d.Manufacturer != null && EF.Functions.Like(d.Manufacturer, pattern)) ||
+                    (d.Model != null && EF.Functions.Like(d.Model, pattern))));
         }
 
         if (status.HasValue)
@@ -63,7 +70,7 @@ public class ComputersController(AppDbContext db) : ControllerBase
     {
         var number = input.InventoryNumber.Trim();
 
-        if (await InventoryNumberExistsAsync(number))
+        if (await InventoryNumberTakenAsync(number))
         {
             return DuplicateInventoryNumber();
         }
@@ -107,8 +114,8 @@ public class ComputersController(AppDbContext db) : ControllerBase
 
         var number = input.InventoryNumber.Trim();
 
-        if (await db.Computers.AnyAsync(c => c.Id != id && c.InventoryNumber == number) ||
-            await db.Devices.AnyAsync(d => d.InventoryNumber == number))
+        if (await db.Computers.AnyAsync(c => c.Id != id && EF.Functions.Collate(c.InventoryNumber, "NOCASE") == number) ||
+            await db.Devices.AnyAsync(d => EF.Functions.Collate(d.InventoryNumber, "NOCASE") == number))
         {
             return DuplicateInventoryNumber();
         }
@@ -144,13 +151,14 @@ public class ComputersController(AppDbContext db) : ControllerBase
         return NoContent();
     }
 
-    private async Task<bool> InventoryNumberExistsAsync(string number) =>
-        await db.Computers.AnyAsync(c => c.InventoryNumber == number) ||
-        await db.Devices.AnyAsync(d => d.InventoryNumber == number);
+    private async Task<bool> InventoryNumberTakenAsync(string number) =>
+        await db.Computers.AnyAsync(c => EF.Functions.Collate(c.InventoryNumber, "NOCASE") == number) ||
+        await db.Devices.AnyAsync(d => EF.Functions.Collate(d.InventoryNumber, "NOCASE") == number);
 
     private ActionResult DuplicateInventoryNumber()
     {
-        ModelState.AddModelError(nameof(ComputerInput.InventoryNumber), "???? ??????????? ????? ??? ????????????");
+        ModelState.AddModelError(nameof(ComputerInput.InventoryNumber),
+            "Такой инвентарный номер уже используется (компьютером или устройством). Инвентарный номер должен быть уникальным.");
         return ValidationProblem(ModelState);
     }
 

@@ -1,4 +1,3 @@
-using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 
@@ -14,7 +13,7 @@ public class BackupController(IConfiguration configuration, IWebHostEnvironment 
         var dbPath = GetDatabasePath();
         if (!System.IO.File.Exists(dbPath))
         {
-            return NotFound(new { message = "???? ???? ?????? ?? ??????." });
+            return NotFound(new { message = "Файл базы данных не найден." });
         }
 
         var tempPath = Path.Combine(Path.GetTempPath(), $"library-backup-{Guid.NewGuid():N}.db");
@@ -37,13 +36,13 @@ public class BackupController(IConfiguration configuration, IWebHostEnvironment 
     {
         if (file is null || file.Length == 0)
         {
-            return BadRequest(new { message = "???????? ???? ????????? ????? (.db, .sqlite)." });
+            return BadRequest(new { message = "Выберите файл резервной копии (.db, .sqlite)." });
         }
 
         var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
         if (ext is not ".db" and not ".sqlite" and not ".sqlite3")
         {
-            return BadRequest(new { message = "?????????????? ?????? ????? SQLite (.db, .sqlite, .sqlite3)." });
+            return BadRequest(new { message = "Неподдерживаемый формат файла. Ожидается файл SQLite (.db, .sqlite, .sqlite3)." });
         }
 
         var dbPath = GetDatabasePath();
@@ -59,7 +58,7 @@ public class BackupController(IConfiguration configuration, IWebHostEnvironment 
 
             if (!await LooksLikeSqliteAsync(tempUpload))
             {
-                return BadRequest(new { message = "??????????? ???? ?? ???????? ????? ?????? SQLite." });
+                return BadRequest(new { message = "Выбранный файл не является файлом базы данных SQLite." });
             }
 
             if (System.IO.File.Exists(dbPath))
@@ -88,7 +87,7 @@ public class BackupController(IConfiguration configuration, IWebHostEnvironment 
 
             return Ok(new
             {
-                message = "???? ?????? ????????????? ?? ????????? ?????. ???????? ????????, ????? ??????? ?????????? ??????."
+                message = "База данных восстановлена из резервной копии. Обновите страницу, чтобы увидеть актуальные данные."
             });
         }
         catch (Exception ex)
@@ -104,7 +103,7 @@ public class BackupController(IConfiguration configuration, IWebHostEnvironment 
             catch { }
 
             return StatusCode(StatusCodes.Status500InternalServerError,
-                new { message = "?? ??????? ???????????? ???? ??????.", detail = ex.Message });
+                new { message = "Не удалось восстановить базу данных.", detail = ex.Message });
         }
         finally
         {

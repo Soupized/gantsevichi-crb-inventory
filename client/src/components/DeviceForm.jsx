@@ -69,10 +69,10 @@ export default function DeviceForm({
       {error && <div className="form-error">{error}</div>}
 
       <section className="form-section">
-        <h3>??????????</h3>
+        <h3>Устройство</h3>
         <div className="form-grid">
           <label className="form-field">
-            <span>??? <span className="req">*</span></span>
+            <span>Тип <span className="req">*</span></span>
             <select required value={form.type} onChange={update("type")}>
               {DEVICE_TYPES.map((type) => (
                 <option key={type.value} value={type.value}>
@@ -83,7 +83,7 @@ export default function DeviceForm({
           </label>
 
           <label className="form-field">
-            <span>??????</span>
+            <span>Статус</span>
             <select value={form.status} onChange={update("status")}>
               {EQUIPMENT_STATUSES.map((s) => (
                 <option key={s.value} value={s.value}>{s.label}</option>
@@ -92,18 +92,19 @@ export default function DeviceForm({
           </label>
 
           <label className="form-field">
-            <span>??????????? ????? <span className="req">*</span></span>
+            <span>Инвентарный номер <span className="req">*</span></span>
             <input
               required
               value={form.inventoryNumber}
               onChange={update("inventoryNumber")}
-              placeholder="????????, ???-014"
+              placeholder="Например, МОН-014"
               autoFocus
             />
+            <span className="form-hint">Уникален для всех компьютеров и устройств</span>
           </label>
 
           <label className="form-field">
-            <span>?????????????</span>
+            <span>Производитель</span>
             <input
               value={form.manufacturer}
               onChange={update("manufacturer")}
@@ -112,25 +113,25 @@ export default function DeviceForm({
           </label>
 
           <label className="form-field">
-            <span>??????</span>
+            <span>Модель</span>
             <input
               value={form.model}
               onChange={update("model")}
-              placeholder="?????? ??????????"
+              placeholder="Модель устройства"
             />
           </label>
 
           <label className="form-field">
-            <span>???????? ?????</span>
+            <span>Серийный номер</span>
             <input
               value={form.serialNumber}
               onChange={update("serialNumber")}
-              placeholder="??? ???????"
+              placeholder="При наличии"
             />
           </label>
 
           <label className="form-field">
-            <span>???? ???????? / ??????</span>
+            <span>Дата списания / вывода</span>
             <input
               type="date"
               value={form.decommissionedOn}
@@ -139,41 +140,41 @@ export default function DeviceForm({
           </label>
 
           <label className="form-field full">
-            <span>??????? ???????? / ??????</span>
+            <span>Причина списания / вывода</span>
             <input
               value={form.decommissionReason}
               onChange={update("decommissionReason")}
-              placeholder="?????????????, ????????? ?????, ????????..."
+              placeholder="Неисправность, моральный износ, передача..."
             />
           </label>
         </div>
       </section>
 
       <section className="form-section">
-        <h3>????????</h3>
+        <h3>Привязка</h3>
         <div className="form-grid">
           <label className="form-field full">
-            <span>?????????</span>
+            <span>Компьютер</span>
             <select value={form.computerId} onChange={update("computerId")}>
-              <option value="">??? ???????? (?? ??????)</option>
+              <option value="">Без привязки (на складе)</option>
               {computers.map((computer) => (
                 <option key={computer.id} value={computer.id}>
-                  ? {computer.inventoryNumber}
-                  {computer.model ? ` ? ${computer.model}` : ""}
+                  № {computer.inventoryNumber}
+                  {computer.model ? ` — ${computer.model}` : ""}
                 </option>
               ))}
             </select>
             <span className="form-hint">
-              ???????? ???? ?????????, ???? ?????????? ???? ?? ?????????? ? ??????????.
+              Оставьте «Без привязки», если устройство пока не подключено к компьютеру.
             </span>
           </label>
 
           <label className="form-field full">
-            <span>??????????</span>
+            <span>Примечание</span>
             <textarea
               value={form.notes}
               onChange={update("notes")}
-              placeholder="?????????, ???????????, ?????????????..."
+              placeholder="Состояние, особенности, комплектность..."
             />
           </label>
         </div>
@@ -181,10 +182,10 @@ export default function DeviceForm({
 
       <div className="modal-actions">
         <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={busy}>
-          ??????
+          Отмена
         </button>
         <button type="submit" className="btn btn-primary" disabled={busy}>
-          {busy ? "??????????..." : initial ? "????????? ?????????" : "???????? ??????????"}
+          {busy ? "Сохранение..." : initial ? "Сохранить изменения" : "Добавить устройство"}
         </button>
       </div>
     </form>

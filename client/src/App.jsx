@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
-import { DEVICE_TYPES, EQUIPMENT_STATUSES, matchesSearch, statusLabel } from "./utils.js";
+import { DEVICE_TYPES, EQUIPMENT_STATUSES } from "./utils.js";
 import ComputerCard from "./components/ComputerCard.jsx";
 import DeviceTable from "./components/DeviceTable.jsx";
 import ComputerForm from "./components/ComputerForm.jsx";
@@ -17,12 +17,16 @@ import {
 } from "./components/Icons.jsx";
 
 export default function App() {
+  const [allComputers, setAllComputers] = useState([]);
+  const [allDevices, setAllDevices] = useState([]);
   const [computers, setComputers] = useState([]);
   const [devices, setDevices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [listLoading, setListLoading] = useState(false);
   const [error, setError] = useState("");
   const [tab, setTab] = useState("computers");
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [computerFilter, setComputerFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -35,28 +39,73 @@ export default function App() {
   const restoreInputRef = useRef(null);
   const importCompRef = useRef(null);
   const importDevRef = useRef(null);
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  const loadBase = useCallback(async () => {
+    const [computersData, devicesData] = await Promise.all([
+      api.getComputers(),
+      api.getDevices()
+    ]);
+    setAllComputers(computersData);
+    setAllDevices(devicesData);
+    return { computersData, devicesData };
+  }, []);
+
+  const loadLists = useCallback(async () => {
+    const [computersData, devicesData] = await Promise.all([
+      api.getComputers({ search: debouncedQuery, status: statusFilter }),
+      api.getDevices({
+        search: debouncedQuery,
+        status: statusFilter,
+        type: typeFilter,
+        computerId: computerFilter
+      })
+    ]);
+    setComputers(computersData);
+    setDevices(devicesData);
+  }, [debouncedQuery, statusFilter, typeFilter, computerFilter]);
 
   const loadAll = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
-
     try {
-      const [computersData, devicesData] = await Promise.all([
-        api.getComputers(),
-        api.getDevices()
-      ]);
-      setComputers(computersData);
-      setDevices(devicesData);
+      await Promise.all([loadBase(), loadLists()]);
       setError("");
     } catch (err) {
       setError(err.message);
     } finally {
       if (!silent) setLoading(false);
+      initialized.current = true;
     }
-  }, []);
+  }, [loadBase, loadLists]);
 
   useEffect(() => {
-    loadAll();
-  }, [loadAll]);
+    loadBase().catch((err) => setError(err.message));
+  }, [loadBase]);
+
+  useEffect(() => {
+    if (!initialized.current) {
+      loadLists()
+        .then(() => {
+          setError("");
+        })
+        .catch((err) => setError(err.message))
+        .finally(() => {
+          setLoading(false);
+          initialized.current = true;
+        });
+      return;
+    }
+    setListLoading(true);
+    loadLists()
+      .then(() => setError(""))
+      .catch((err) => setError(err.message))
+      .finally(() => setListLoading(false));
+  }, [loadLists]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -64,69 +113,14 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [toast]);
 
-  const filteredComputers = useMemo(
-    () =>
-      computers.filter((computer) => {
-        if (statusFilter !== "all" && computer.status !== statusFilter) return false;
-        return matchesSearch(query, [
-          computer.inventoryNumber,
-          computer.model,
-          computer.processor,
-          computer.graphicsCard,
-          computer.ramGb ? `${computer.ramGb} ??` : null,
-          computer.storage,
-          computer.motherboard,
-          computer.operatingSystem,
-          computer.location,
-          computer.assignedTo,
-          statusLabel(computer.status),
-          computer.decommissionReason,
-          ...(computer.devices ?? []).flatMap((device) => [
-            device.inventoryNumber,
-            device.manufacturer,
-            device.model
-          ])
-        ]);
-      }),
-    [computers, query, statusFilter]
-  );
-
-  const filteredDevices = useMemo(
-    () =>
-      devices.filter((device) => {
-        if (typeFilter !== "all" && device.type !== typeFilter) return false;
-        if (statusFilter !== "all" && device.status !== statusFilter) return false;
-        if (computerFilter === "unassigned" && device.computerId) return false;
-        if (
-          computerFilter !== "all" &&
-          computerFilter !== "unassigned" &&
-          String(device.computerId) !== computerFilter
-        ) {
-          return false;
-        }
-
-        return matchesSearch(query, [
-          device.inventoryNumber,
-          device.manufacturer,
-          device.model,
-          device.serialNumber,
-          device.computerInventoryNumber,
-          statusLabel(device.status),
-          device.decommissionReason,
-          device.notes
-        ]);
-      }),
-    [devices, query, typeFilter, computerFilter, statusFilter]
-  );
-
-  const unassignedCount = devices.filter((device) => !device.computerId).length;
-  const monitorCount = devices.filter((device) => device.type === "Monitor").length;
+  const unassignedCount = allDevices.filter((device) => !device.computerId).length;
+  const monitorCount = allDevices.filter((device) => device.type === "Monitor").length;
   const writtenOffCount =
-    computers.filter((c) => c.status === "WrittenOff").length +
-    devices.filter((d) => d.status === "WrittenOff").length;
+    allComputers.filter((c) => c.status === "WrittenOff").length +
+    allDevices.filter((d) => d.status === "WrittenOff").length;
   const inRepairCount =
-    computers.filter((c) => c.status === "InRepair").length +
-    devices.filter((d) => d.status === "InRepair").length;
+    allComputers.filter((c) => c.status === "InRepair").length +
+    allDevices.filter((d) => d.status === "InRepair").length;
 
   const switchTab = (nextTab) => {
     setTab(nextTab);
@@ -145,7 +139,7 @@ export default function App() {
     else await api.createComputer(payload);
     setComputerModal(null);
     await loadAll({ silent: true });
-    setToast(isEditing ? "????????? ????????" : "????????? ????????");
+    setToast(isEditing ? "Компьютер обновлён" : "Компьютер добавлен");
   };
 
   const handleSaveDevice = async (payload) => {
@@ -154,31 +148,31 @@ export default function App() {
     else await api.createDevice(payload);
     setDeviceModal(null);
     await loadAll({ silent: true });
-    setToast(isEditing ? "?????????? ?????????" : "?????????? ?????????");
+    setToast(isEditing ? "Устройство обновлено" : "Устройство добавлено");
   };
 
   const handleDeleteComputer = (computer) => {
     setConfirm({
-      title: "??????? ??????????",
-      message: `????????? ? ${computer.inventoryNumber} ????? ?????? ?? ?????. ??????????? ????????? ????????? ? ???? ??? ???????? ? ??????????.`,
-      confirmLabel: "??????? ?????????",
+      title: "Удалить компьютер?",
+      message: `Компьютер № ${computer.inventoryNumber} будет удалён из учёта. Привязанная периферия останется в базе без привязки к компьютеру.`,
+      confirmLabel: "Удалить компьютер",
       onConfirm: async () => {
         await api.deleteComputer(computer.id);
         await loadAll({ silent: true });
-        setToast("????????? ??????");
+        setToast("Компьютер удалён");
       }
     });
   };
 
   const handleDeleteDevice = (device) => {
     setConfirm({
-      title: "??????? ???????????",
-      message: `?????????? ? ${device.inventoryNumber} ????? ??????? ?? ?????.`,
-      confirmLabel: "??????? ??????????",
+      title: "Удалить устройство?",
+      message: `Устройство № ${device.inventoryNumber} будет удалено из учёта.`,
+      confirmLabel: "Удалить устройство",
       onConfirm: async () => {
         await api.deleteDevice(device.id);
         await loadAll({ silent: true });
-        setToast("?????????? ???????");
+        setToast("Устройство удалено");
       }
     });
   };
@@ -197,7 +191,7 @@ export default function App() {
   const handleBackupDownload = async () => {
     try {
       await runAction("backup", () => api.downloadBackup());
-      setToast("????????? ????? ??????? (???? .db)");
+      setToast("Резервная копия скачана (файл .db)");
     } catch (err) {
       setToast(err.message);
     }
@@ -208,12 +202,12 @@ export default function App() {
     event.target.value = "";
     if (!file) return;
     setConfirm({
-      title: "???????????? ???? ?? ??????",
-      message: `??????? ?????? ????? ???????? ?????????? ????? ?${file.name}?. ????????????? ??????? ??????? ??????? ????????? ?????.`,
-      confirmLabel: "????????????",
+      title: "Восстановить базу из копии?",
+      message: `Текущие данные будут заменены содержимым файла «${file.name}». Рекомендуется заранее скачать текущую резервную копию.`,
+      confirmLabel: "Восстановить",
       onConfirm: async () => {
         const res = await runAction("restore", () => api.restoreBackup(file), { reload: true });
-        setToast(res?.message || "???? ?????? ?????????????");
+        setToast(res?.message || "База данных восстановлена");
       }
     });
   };
@@ -222,7 +216,7 @@ export default function App() {
     try {
       if (kind === "computers") await runAction("export", () => api.exportComputersCsv());
       else await runAction("export", () => api.exportDevicesCsv());
-      setToast("CSV-???? ????????");
+      setToast("CSV-файл выгружен");
     } catch (err) {
       setToast(err.message);
     }
@@ -233,12 +227,12 @@ export default function App() {
     try {
       const fn = kind === "computers" ? api.importComputersCsv : api.importDevicesCsv;
       const result = await runAction("import", () => fn(file, "upsert"), { reload: true });
-      const parts = [`?????????: ${result.created ?? 0}`, `?????????: ${result.updated ?? 0}`];
-      if (result.skipped) parts.push(`?????????: ${result.skipped}`);
-      if (result.errors?.length) parts.push(`??????: ${result.errors.length}`);
-      setToast(`?????? ???????? (${parts.join(", ")})`);
+      const parts = [`добавлено: ${result.created ?? 0}`, `обновлено: ${result.updated ?? 0}`];
+      if (result.skipped) parts.push(`пропущено: ${result.skipped}`);
+      if (result.errors?.length) parts.push(`ошибок: ${result.errors.length}`);
+      setToast(`Импорт завершён (${parts.join(", ")})`);
       if (result.errors?.length) {
-        console.warn("?????? ??????? CSV:", result.errors);
+        console.warn("Ошибки импорта CSV:", result.errors);
       }
     } catch (err) {
       setToast(err.message);
@@ -247,8 +241,8 @@ export default function App() {
 
   const searchPlaceholder =
     tab === "computers"
-      ? "????? ?? ??????, ??????, ????????..."
-      : "????? ?? ??????, ??????, ??????????...";
+      ? "Поиск по номеру, модели, кабинету..."
+      : "Поиск по номеру, модели, компьютеру...";
 
   const hasDeviceFilters =
     query.trim() !== "" || typeFilter !== "all" || computerFilter !== "all" || statusFilter !== "all";
@@ -258,71 +252,71 @@ export default function App() {
     <div className="app-shell">
       <header className="app-header">
         <div className="brand">
-          <div className="logo">????</div>
+          <div className="logo">ГЦРБ</div>
           <div>
-            <p className="eyebrow">???????????? ??????????? ???????? ??????????</p>
-            <h1>???? ??????????? ? ???????</h1>
+            <p className="eyebrow">Ганцевичская центральная районная библиотека</p>
+            <h1>Учёт компьютеров и техники</h1>
           </div>
         </div>
 
         <div className="header-actions">
           <button className="btn btn-secondary btn-header" onClick={() => setDataModal(true)}>
-            ??????
+            Данные
           </button>
           <button
             className="btn btn-light"
             onClick={tab === "computers" ? openCreateComputer : () => openCreateDevice()}
           >
             <PlusIcon />
-            {tab === "computers" ? "???????? ?????????" : "???????? ??????????"}
+            {tab === "computers" ? "Добавить компьютер" : "Добавить устройство"}
           </button>
         </div>
       </header>
 
-      <section className="stats-grid" aria-label="?????? ?? ?????">
+      <section className="stats-grid" aria-label="Сводка по учёту">
         <div className="stat-card">
-          <span className="stat-label">??????????</span>
-          <span className="stat-value">{computers.length}</span>
-          <span className="stat-note">? ???? ?????</span>
+          <span className="stat-label">Компьютеры</span>
+          <span className="stat-value">{allComputers.length}</span>
+          <span className="stat-note">в базе учёта</span>
         </div>
         <div className="stat-card">
-          <span className="stat-label">?????????</span>
-          <span className="stat-value">{devices.length}</span>
-          <span className="stat-note">????, ??????????, ???????? ? ??.</span>
+          <span className="stat-label">Периферия</span>
+          <span className="stat-value">{allDevices.length}</span>
+          <span className="stat-note">мыши, клавиатуры, мониторы и др.</span>
         </div>
         <div className="stat-card">
-          <span className="stat-label">????????</span>
+          <span className="stat-label">Мониторы</span>
           <span className="stat-value">{monitorCount}</span>
-          <span className="stat-note">???????? ?? ???????????</span>
+          <span className="stat-note">отдельно от компьютеров</span>
         </div>
         <div className={`stat-card ${unassignedCount > 0 ? "stat-warn" : ""}`}>
-          <span className="stat-label">??? ????????</span>
+          <span className="stat-label">Без привязки</span>
           <span className="stat-value">{unassignedCount}</span>
-          <span className="stat-note">?????????? ?? ?????????</span>
+          <span className="stat-note">устройства не назначены</span>
         </div>
         <div className={`stat-card ${inRepairCount > 0 ? "stat-warn" : ""}`}>
-          <span className="stat-label">? ???????</span>
+          <span className="stat-label">В ремонте</span>
           <span className="stat-value">{inRepairCount}</span>
-          <span className="stat-note">?????????? ? ??????????</span>
+          <span className="stat-note">компьютеры и устройства</span>
         </div>
         <div className="stat-card">
-          <span className="stat-label">???????</span>
+          <span className="stat-label">Списано</span>
           <span className="stat-value">{writtenOffCount}</span>
-          <span className="stat-note">???????? ?? ????????????</span>
+          <span className="stat-note">выведено из эксплуатации</span>
         </div>
       </section>
 
       <main>
         <div className="toolbar">
-          <div className="tabs" role="tablist" aria-label="??????? ?????">
+          <div className="tabs" role="tablist" aria-label="Разделы учёта">
             <button
               role="tab"
               aria-selected={tab === "computers"}
               className={`tab ${tab === "computers" ? "active" : ""}`}
               onClick={() => switchTab("computers")}
             >
-              ??????????
-              <span className="tab-count">{computers.length}</span>
+              Компьютеры
+              <span className="tab-count">{allComputers.length}</span>
             </button>
             <button
               role="tab"
@@ -330,8 +324,8 @@ export default function App() {
               className={`tab ${tab === "devices" ? "active" : ""}`}
               onClick={() => switchTab("devices")}
             >
-              ?????????
-              <span className="tab-count">{devices.length}</span>
+              Периферия
+              <span className="tab-count">{allDevices.length}</span>
             </button>
           </div>
 
@@ -342,7 +336,7 @@ export default function App() {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder={searchPlaceholder}
-                aria-label="?????"
+                aria-label="Поиск"
               />
             </div>
 
@@ -350,9 +344,9 @@ export default function App() {
               className="filter-select"
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
-              aria-label="?????? ?? ???????"
+              aria-label="Фильтр по статусу"
             >
-              <option value="all">??? ???????</option>
+              <option value="all">Все статусы</option>
               {EQUIPMENT_STATUSES.map((s) => (
                 <option key={s.value} value={s.value}>{s.label}</option>
               ))}
@@ -364,9 +358,9 @@ export default function App() {
                   className="filter-select"
                   value={typeFilter}
                   onChange={(event) => setTypeFilter(event.target.value)}
-                  aria-label="?????? ?? ???? ??????????"
+                  aria-label="Фильтр по типу устройства"
                 >
-                  <option value="all">??? ????</option>
+                  <option value="all">Все типы</option>
                   {DEVICE_TYPES.map((type) => (
                     <option key={type.value} value={type.value}>{type.label}</option>
                   ))}
@@ -376,13 +370,13 @@ export default function App() {
                   className="filter-select"
                   value={computerFilter}
                   onChange={(event) => setComputerFilter(event.target.value)}
-                  aria-label="?????? ?? ??????????"
+                  aria-label="Фильтр по компьютеру"
                 >
-                  <option value="all">??? ??????????</option>
-                  <option value="unassigned">??? ????????</option>
-                  {computers.map((computer) => (
+                  <option value="all">Все компьютеры</option>
+                  <option value="unassigned">Без привязки</option>
+                  {allComputers.map((computer) => (
                     <option key={computer.id} value={computer.id}>
-                      ? {computer.inventoryNumber}
+                      № {computer.inventoryNumber}
                     </option>
                   ))}
                 </select>
@@ -392,11 +386,11 @@ export default function App() {
             <button
               className="btn btn-secondary"
               onClick={() => loadAll()}
-              disabled={loading}
-              title="???????? ??????"
+              disabled={loading || listLoading}
+              title="Обновить данные"
             >
               <RefreshIcon />
-              ????????
+              Обновить
             </button>
           </div>
         </div>
@@ -405,12 +399,12 @@ export default function App() {
           <div className="banner error" role="alert">
             <AlertIcon />
             <div>
-              <strong>?? ??????? ????????? ??????.</strong>
+              <strong>Не удалось загрузить данные.</strong>
               <div>{error}</div>
-              <div className="banner-hint">?????????, ??? ?????? API ??????? (???? 5169).</div>
+              <div className="banner-hint">Убедитесь, что сервер приложения запущен и доступен.</div>
             </div>
             <button className="btn btn-secondary small" onClick={() => loadAll()}>
-              ?????????
+              Повторить
             </button>
           </div>
         )}
@@ -418,18 +412,19 @@ export default function App() {
         {loading ? (
           <div className="loading-state">
             <span className="spinner" />
-            ???????? ???????
+            Загрузка данных…
           </div>
         ) : tab === "computers" ? (
-          filteredComputers.length > 0 ? (
+          computers.length > 0 ? (
             <>
               {hasComputerFilters && (
                 <p className="results-line">
-                  ??????? ???????????: <strong>{filteredComputers.length}</strong>
+                  Найдено компьютеров: <strong>{computers.length}</strong>
+                  {listLoading ? " (обновление…)" : ""}
                 </p>
               )}
               <div className="cards-grid">
-                {filteredComputers.map((computer) => (
+                {computers.map((computer) => (
                   <ComputerCard
                     key={computer.id}
                     computer={computer}
@@ -442,54 +437,55 @@ export default function App() {
             </>
           ) : (
             <EmptyState
-              title={computers.length ? "?????? ?? ???????" : "???? ??? ?? ?????? ??????????"}
+              title={allComputers.length ? "Ничего не найдено" : "Пока нет ни одного компьютера"}
               text={
-                computers.length
-                  ? "?????????? ???????? ????? ??? ???????."
-                  : "???????? ?????? ?????????, ????? ?????? ???? ??????? ??????????."
+                allComputers.length
+                  ? "Попробуйте изменить поиск или фильтры."
+                  : "Добавьте первый компьютер, чтобы начать учёт техники библиотеки."
               }
-              actionLabel={computers.length ? undefined : "???????? ?????????"}
-              onAction={computers.length ? undefined : openCreateComputer}
+              actionLabel={allComputers.length ? undefined : "Добавить компьютер"}
+              onAction={allComputers.length ? undefined : openCreateComputer}
             />
           )
-        ) : filteredDevices.length > 0 ? (
+        ) : devices.length > 0 ? (
           <>
             {hasDeviceFilters && (
               <p className="results-line">
-                ??????? ?????????: <strong>{filteredDevices.length}</strong>
+                Найдено устройств: <strong>{devices.length}</strong>
+                {listLoading ? " (обновление…)" : ""}
               </p>
             )}
             <DeviceTable
-              devices={filteredDevices}
+              devices={devices}
               onEdit={openEditDevice}
               onDelete={handleDeleteDevice}
             />
           </>
         ) : (
           <EmptyState
-            title={devices.length ? "?????? ?? ???????" : "???? ??? ?????????"}
+            title={allDevices.length ? "Ничего не найдено" : "Пока нет периферии"}
             text={
-              devices.length
-                ? "???????? ????????? ?????? ??? ???????."
-                : "???????? ????, ??????????, ???????? ? ?????? ????????? ? ???? ?????."
+              allDevices.length
+                ? "Измените поисковый запрос или фильтры."
+                : "Добавьте мыши, клавиатуры, мониторы и другую периферию в базу учёта."
             }
-            actionLabel={devices.length ? undefined : "???????? ??????????"}
-            onAction={devices.length ? undefined : () => openCreateDevice()}
+            actionLabel={allDevices.length ? undefined : "Добавить устройство"}
+            onAction={allDevices.length ? undefined : () => openCreateDevice()}
           />
         )}
       </main>
 
       <footer className="app-footer">
-        ???????????? ??????????? ???????? ?????????? ? ???? ??????? ? {new Date().getFullYear()}
+        Ганцевичская центральная районная библиотека · учёт техники · {new Date().getFullYear()}
       </footer>
 
       {computerModal && (
         <Modal
-          title={computerModal.mode === "edit" ? "?????????????? ??????????" : "????? ?????????"}
+          title={computerModal.mode === "edit" ? "Редактирование компьютера" : "Новый компьютер"}
           subtitle={
             computerModal.mode === "edit"
-              ? `??????????? ? ${computerModal.computer.inventoryNumber}`
-              : "????????? ?????? ? ??????????"
+              ? `Инвентарный № ${computerModal.computer.inventoryNumber}`
+              : "Заполните данные о компьютере"
           }
           onClose={() => setComputerModal(null)}
         >
@@ -503,17 +499,17 @@ export default function App() {
 
       {deviceModal && (
         <Modal
-          title={deviceModal.mode === "edit" ? "?????????????? ??????????" : "????? ??????????"}
+          title={deviceModal.mode === "edit" ? "Редактирование устройства" : "Новое устройство"}
           subtitle={
             deviceModal.mode === "edit"
-              ? `??????????? ? ${deviceModal.device.inventoryNumber}`
-              : "????, ??????????, ??????? ??? ?????? ????????????"
+              ? `Инвентарный № ${deviceModal.device.inventoryNumber}`
+              : "Мышь, клавиатура, монитор или другое оборудование"
           }
           onClose={() => setDeviceModal(null)}
         >
           <DeviceForm
             initial={deviceModal.device}
-            computers={computers}
+            computers={allComputers}
             presetComputerId={deviceModal.presetComputerId}
             onSubmit={handleSaveDevice}
             onCancel={() => setDeviceModal(null)}
@@ -522,53 +518,53 @@ export default function App() {
       )}
 
       {dataModal && (
-        <Modal title="?????? ? ????????? ?????" subtitle="???????, ?????? (CSV) ? ????? ???? (SQLite .db)" onClose={() => setDataModal(false)} size="wide">
+        <Modal title="Данные и резервные копии" subtitle="Экспорт, импорт (CSV) и бэкап базы (SQLite .db)" onClose={() => setDataModal(false)} size="wide">
           <div className="data-tools">
             <section className="data-section">
-              <h3>????????? ????? (SQLite)</h3>
-              <p className="form-hint">?????? ????? ???? ?????? ? ??????? .db ? ????????????? ?????? SQLite. ????????????? ?????? ????? ???????????? ? ????????.</p>
+              <h3>Резервная копия (SQLite)</h3>
+              <p className="form-hint">Полная копия базы данных в формате .db — универсальный формат SQLite. Рекомендуется делать перед обновлениями и импортом.</p>
               <div className="data-actions">
                 <button className="btn btn-primary" onClick={handleBackupDownload} disabled={!!busyAction}>
-                  ??????? ????? (.db)
+                  Скачать бэкап (.db)
                 </button>
                 <button className="btn btn-secondary" onClick={() => restoreInputRef.current?.click()} disabled={!!busyAction}>
-                  ???????????? ?? .db?
+                  Восстановить из .db…
                 </button>
                 <input ref={restoreInputRef} type="file" accept=".db,.sqlite,.sqlite3,application/x-sqlite3" style={{ display: "none" }} onChange={handleRestoreFile} />
               </div>
             </section>
 
             <section className="data-section">
-              <h3>??????? ? CSV</h3>
-              <p className="form-hint">CSV (UTF-8) ? ??????????? ? Excel, LibreOffice, Google Sheets. ?????? ??? ??????? ? ??????.</p>
+              <h3>Экспорт в CSV</h3>
+              <p className="form-hint">CSV (UTF-8) — открывается в Excel, LibreOffice, Google Sheets. Удобно для отчётов и печати.</p>
               <div className="data-actions">
                 <button className="btn btn-secondary" onClick={() => handleExport("computers")} disabled={!!busyAction}>
-                  ??????? ??????????? (.csv)
+                  Экспорт компьютеров (.csv)
                 </button>
                 <button className="btn btn-secondary" onClick={() => handleExport("devices")} disabled={!!busyAction}>
-                  ??????? ????????? (.csv)
+                  Экспорт периферии (.csv)
                 </button>
               </div>
             </section>
 
             <section className="data-section">
-              <h3>?????? ?? CSV</h3>
-              <p className="form-hint">?????? ????????? ????? ?????? ? ????????? ???????????? ?? ???????????? ??????. ?????? ??????? ? ??? ? ???????????????? CSV. ??? ????????? ???????? ? ?????????? ???????? ???????? ComputerInventoryNumber.</p>
+              <h3>Импорт из CSV</h3>
+              <p className="form-hint">Импорт добавляет новые записи и обновляет существующие по инвентарному номеру (без учёта регистра). Инвентарный номер должен быть уникальным для всех компьютеров и устройств. Формат колонок — как в экспортированных CSV. Для периферии привязка к компьютеру задаётся колонкой ComputerInventoryNumber.</p>
               <div className="data-actions">
                 <button className="btn btn-secondary" onClick={() => importCompRef.current?.click()} disabled={!!busyAction}>
-                  ?????? ??????????? (.csv)?
+                  Импорт компьютеров (.csv)…
                 </button>
                 <button className="btn btn-secondary" onClick={() => importDevRef.current?.click()} disabled={!!busyAction}>
-                  ?????? ????????? (.csv)?
+                  Импорт периферии (.csv)…
                 </button>
                 <input ref={importCompRef} type="file" accept=".csv,text/csv" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) handleImport("computers", f); }} />
                 <input ref={importDevRef} type="file" accept=".csv,text/csv" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) handleImport("devices", f); }} />
               </div>
               <details className="import-help">
-                <summary>????????? ?? ???????? CSV</summary>
-                <p><strong>??????????:</strong> InventoryNumber, Status (InUse/InRepair/InStock/WrittenOff), Model, Processor, GraphicsCard, RamGb, Storage, Motherboard, OperatingSystem, Location, AssignedTo, CommissionedOn, DecommissionedOn, DecommissionReason, Notes</p>
-                <p><strong>?????????:</strong> InventoryNumber, Status, Type (Mouse/Keyboard/Monitor/Printer/Scanner/Ups/Other), Manufacturer, Model, SerialNumber, ComputerInventoryNumber, DecommissionedOn, DecommissionReason, Notes</p>
-                <p>???? ? ??????? YYYY-MM-DD. ????????? UTF-8.</p>
+                <summary>Подсказка по колонкам CSV</summary>
+                <p><strong>Компьютеры:</strong> InventoryNumber, Status (InUse/InRepair/InStock/WrittenOff), Model, Processor, GraphicsCard, RamGb, Storage, Motherboard, OperatingSystem, Location, AssignedTo, CommissionedOn, DecommissionedOn, DecommissionReason, Notes</p>
+                <p><strong>Периферия:</strong> InventoryNumber, Status, Type (Mouse/Keyboard/Monitor/Printer/Scanner/Ups/Other), Manufacturer, Model, SerialNumber, ComputerInventoryNumber, DecommissionedOn, DecommissionReason, Notes</p>
+                <p>Даты в формате YYYY-MM-DD. Кодировка UTF-8.</p>
               </details>
             </section>
           </div>

@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Text;
 using LibraryInventory.Api.Data;
-using LibraryInventory.Api.Dtos;
 using LibraryInventory.Api.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
@@ -97,33 +96,42 @@ public class DataTransferController(AppDbContext db) : ControllerBase
     public async Task<ActionResult<ImportResult>> ImportComputersCsv(IFormFile? file, [FromQuery] string mode = "upsert")
     {
         if (file is null || file.Length == 0)
-            return BadRequest(new { message = "???????? CSV-???? ??? ???????." });
+            return BadRequest(new { message = "Выберите CSV-файл для импорта." });
 
         var rows = await ReadCsvAsync(file);
         if (rows.Count == 0)
-            return BadRequest(new { message = "???? ???? ??? ????? ???????? ??????." });
+            return BadRequest(new { message = "Файл пуст или имеет неверный формат." });
 
         var upsert = !string.Equals(mode, "insert", StringComparison.OrdinalIgnoreCase);
         var result = new ImportResult();
+        var seenInFile = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var (row, index) in rows.Select((r, i) => (r, i + 2)))
         {
-            var inv = Get(row, "InventoryNumber");
-            if (string.IsNullOrWhiteSpace(inv))
+            var invRaw = Get(row, "InventoryNumber");
+            if (string.IsNullOrWhiteSpace(invRaw))
             {
-                result.Errors.Add($"?????? {index}: ?? ?????? InventoryNumber.");
+                result.Errors.Add($"Строка {index}: не указан InventoryNumber.");
                 continue;
             }
 
-            inv = inv.Trim();
-            var existing = await db.Computers.Include(c => c.Devices)
-                .FirstOrDefaultAsync(c => c.InventoryNumber == inv);
-
-            if (existing is null)
+            var inv = invRaw.Trim();
+            if (!seenInFile.Add(inv))
             {
-                if (await db.Devices.AnyAsync(d => d.InventoryNumber == inv))
+                result.Errors.Add($"Строка {index}: инвентарный номер '{inv}' повторяется в файле.");
+                continue;
+            }
+
+            var existingComputer = await db.Computers
+                .FirstOrDefaultAsync(c => EF.Functions.Collate(c.InventoryNumber, "NOCASE") == inv);
+            var takenByDevice = await db.Devices
+                .AnyAsync(d => EF.Functions.Collate(d.InventoryNumber, "NOCASE") == inv);
+
+            if (existingComputer is null)
+            {
+                if (takenByDevice)
                 {
-                    result.Errors.Add($"?????? {index}: ??????????? ????? {inv} ??? ???????????? ???????????.");
+                    result.Errors.Add($"Строка {index}: инвентарный номер '{inv}' уже используется устройством.");
                     continue;
                 }
 
@@ -138,8 +146,8 @@ public class DataTransferController(AppDbContext db) : ControllerBase
             }
             else if (upsert)
             {
-                if (!TryApplyComputer(existing, row, index, result.Errors)) continue;
-                existing.UpdatedAt = DateTime.UtcNow;
+                if (!TryApplyComputer(existingComputer, row, index, result.Errors)) continue;
+                existingComputer.UpdatedAt = DateTime.UtcNow;
                 result.Updated++;
             }
             else
@@ -154,7 +162,7 @@ public class DataTransferController(AppDbContext db) : ControllerBase
         }
         catch (DbUpdateException ex) when (ex.InnerException is SqliteException { SqliteErrorCode: 19 })
         {
-            return Conflict(new { message = "???????? ???????????? ??? ???????. ????????? ????? ??????????? ???????.", result });
+            return Conflict(new { message = "Конфликт уникальности при импорте. Проверьте дубли инвентарных номеров (включая совпадения между компьютерами и устройствами).", result });
         }
 
         return Ok(result);
@@ -165,32 +173,42 @@ public class DataTransferController(AppDbContext db) : ControllerBase
     public async Task<ActionResult<ImportResult>> ImportDevicesCsv(IFormFile? file, [FromQuery] string mode = "upsert")
     {
         if (file is null || file.Length == 0)
-            return BadRequest(new { message = "???????? CSV-???? ??? ???????." });
+            return BadRequest(new { message = "Выберите CSV-файл для импорта." });
 
         var rows = await ReadCsvAsync(file);
         if (rows.Count == 0)
-            return BadRequest(new { message = "???? ???? ??? ????? ???????? ??????." });
+            return BadRequest(new { message = "Файл пуст или имеет неверный формат." });
 
         var upsert = !string.Equals(mode, "insert", StringComparison.OrdinalIgnoreCase);
         var result = new ImportResult();
+        var seenInFile = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var (row, index) in rows.Select((r, i) => (r, i + 2)))
         {
-            var inv = Get(row, "InventoryNumber");
-            if (string.IsNullOrWhiteSpace(inv))
+            var invRaw = Get(row, "InventoryNumber");
+            if (string.IsNullOrWhiteSpace(invRaw))
             {
-                result.Errors.Add($"?????? {index}: ?? ?????? InventoryNumber.");
+                result.Errors.Add($"Строка {index}: не указан InventoryNumber.");
                 continue;
             }
 
-            inv = inv.Trim();
-            var existing = await db.Devices.FirstOrDefaultAsync(d => d.InventoryNumber == inv);
-
-            if (existing is null)
+            var inv = invRaw.Trim();
+            if (!seenInFile.Add(inv))
             {
-                if (await db.Computers.AnyAsync(c => c.InventoryNumber == inv))
+                result.Errors.Add($"Строка {index}: инвентарный номер '{inv}' повторяется в файле.");
+                continue;
+            }
+
+            var existingDevice = await db.Devices
+                .FirstOrDefaultAsync(d => EF.Functions.Collate(d.InventoryNumber, "NOCASE") == inv);
+            var takenByComputer = await db.Computers
+                .AnyAsync(c => EF.Functions.Collate(c.InventoryNumber, "NOCASE") == inv);
+
+            if (existingDevice is null)
+            {
+                if (takenByComputer)
                 {
-                    result.Errors.Add($"?????? {index}: ??????????? ????? {inv} ??? ???????????? ???????????.");
+                    result.Errors.Add($"Строка {index}: инвентарный номер '{inv}' уже используется компьютером.");
                     continue;
                 }
 
@@ -201,8 +219,8 @@ public class DataTransferController(AppDbContext db) : ControllerBase
             }
             else if (upsert)
             {
-                if (!await TryApplyDeviceAsync(existing, row, index, result.Errors)) continue;
-                existing.UpdatedAt = DateTime.UtcNow;
+                if (!await TryApplyDeviceAsync(existingDevice, row, index, result.Errors)) continue;
+                existingDevice.UpdatedAt = DateTime.UtcNow;
                 result.Updated++;
             }
             else
@@ -217,7 +235,7 @@ public class DataTransferController(AppDbContext db) : ControllerBase
         }
         catch (DbUpdateException ex) when (ex.InnerException is SqliteException { SqliteErrorCode: 19 })
         {
-            return Conflict(new { message = "???????? ???????????? ??? ???????. ????????? ????? ??????????? ???????.", result });
+            return Conflict(new { message = "Конфликт уникальности при импорте. Проверьте дубли инвентарных номеров (включая совпадения между компьютерами и устройствами).", result });
         }
 
         return Ok(result);
@@ -226,7 +244,7 @@ public class DataTransferController(AppDbContext db) : ControllerBase
     private static bool TryApplyComputer(Computer c, Dictionary<string, string> row, int index, List<string> errors)
     {
         var inv = Get(row, "InventoryNumber")?.Trim();
-        if (string.IsNullOrWhiteSpace(inv)) { errors.Add($"?????? {index}: ?????? InventoryNumber."); return false; }
+        if (string.IsNullOrWhiteSpace(inv)) { errors.Add($"Строка {index}: пустой InventoryNumber."); return false; }
         c.InventoryNumber = inv;
         c.Model = Clean(Get(row, "Model"));
         c.Processor = Clean(Get(row, "Processor"));
@@ -244,7 +262,7 @@ public class DataTransferController(AppDbContext db) : ControllerBase
         var statusStr = Get(row, "Status");
         if (!TryParseStatus(statusStr, out var status))
         {
-            errors.Add($"?????? {index}: ???????????? ?????? '{statusStr}'.");
+            errors.Add($"Строка {index}: некорректный статус '{statusStr}'.");
             return false;
         }
         c.Status = status;
@@ -254,13 +272,13 @@ public class DataTransferController(AppDbContext db) : ControllerBase
     private async Task<bool> TryApplyDeviceAsync(Device d, Dictionary<string, string> row, int index, List<string> errors)
     {
         var inv = Get(row, "InventoryNumber")?.Trim();
-        if (string.IsNullOrWhiteSpace(inv)) { errors.Add($"?????? {index}: ?????? InventoryNumber."); return false; }
+        if (string.IsNullOrWhiteSpace(inv)) { errors.Add($"Строка {index}: пустой InventoryNumber."); return false; }
         d.InventoryNumber = inv;
 
         var statusStr = Get(row, "Status");
         if (!TryParseStatus(statusStr, out var status))
         {
-            errors.Add($"?????? {index}: ???????????? ?????? '{statusStr}'.");
+            errors.Add($"Строка {index}: некорректный статус '{statusStr}'.");
             return false;
         }
         d.Status = status;
@@ -268,7 +286,7 @@ public class DataTransferController(AppDbContext db) : ControllerBase
         var typeStr = Get(row, "Type");
         if (!TryParseDeviceType(typeStr, out var type))
         {
-            errors.Add($"?????? {index}: ???????????? ??? ?????????? '{typeStr}'.");
+            errors.Add($"Строка {index}: некорректный тип устройства '{typeStr}'.");
             return false;
         }
         d.Type = type;
@@ -287,10 +305,11 @@ public class DataTransferController(AppDbContext db) : ControllerBase
         }
         else
         {
-            var comp = await db.Computers.AsNoTracking().FirstOrDefaultAsync(c => c.InventoryNumber == compInv);
+            var comp = await db.Computers.AsNoTracking()
+                .FirstOrDefaultAsync(c => EF.Functions.Collate(c.InventoryNumber, "NOCASE") == compInv);
             if (comp is null)
             {
-                errors.Add($"?????? {index}: ????????? ? ??????????? ??????? '{compInv}' ?? ??????.");
+                errors.Add($"Строка {index}: компьютер с инвентарным номером '{compInv}' не найден.");
                 return false;
             }
             d.ComputerId = comp.Id;

@@ -12,7 +12,7 @@ async function request(path, options = {}) {
       }
     });
   } catch {
-    throw new Error("?? ??????? ???????????? ? ???????. ?????????, ???????? ?? ??????????.");
+    throw new Error("Не удалось подключиться к серверу. Проверьте, запущено ли приложение.");
   }
 
   return parseResponse(response);
@@ -20,7 +20,7 @@ async function request(path, options = {}) {
 
 async function parseResponse(response) {
   if (!response.ok) {
-    let message = `?????? ??????? (${response.status})`;
+    let message = `Ошибка запроса (${response.status})`;
 
     try {
       const data = await response.json();
@@ -54,10 +54,10 @@ async function requestBlob(path) {
   try {
     response = await fetch(`${BASE_URL}${path}`);
   } catch {
-    throw new Error("?? ??????? ???????????? ? ???????. ?????????, ???????? ?? ??????????.");
+    throw new Error("Не удалось подключиться к серверу. Проверьте, запущено ли приложение.");
   }
   if (!response.ok) {
-    let message = `?????? ??????? (${response.status})`;
+    let message = `Ошибка запроса (${response.status})`;
     try {
       const data = await response.json();
       if (data?.message) message = data.message;
@@ -76,7 +76,7 @@ async function requestForm(path, formData, method = "POST") {
       body: formData
     });
   } catch {
-    throw new Error("?? ??????? ???????????? ? ???????. ?????????, ???????? ?? ??????????.");
+    throw new Error("Не удалось подключиться к серверу. Проверьте, запущено ли приложение.");
   }
   return parseResponse(response);
 }
@@ -93,8 +93,14 @@ function downloadBlob(blob, filename) {
 }
 
 export const api = {
-  getComputers: (search = "") =>
-    request(`/computers${search ? `?search=${encodeURIComponent(search)}` : ""}`),
+  getComputers: (params = {}) => {
+    const p = typeof params === "string" ? { search: params } : params;
+    const qs = new URLSearchParams();
+    if (p.search) qs.set("search", p.search);
+    if (p.status && p.status !== "all") qs.set("status", p.status);
+    const s = qs.toString();
+    return request(`/computers${s ? `?${s}` : ""}`);
+  },
 
   getComputer: (id) => request(`/computers/${id}`),
 
@@ -106,8 +112,19 @@ export const api = {
 
   deleteComputer: (id) => request(`/computers/${id}`, { method: "DELETE" }),
 
-  getDevices: (search = "") =>
-    request(`/devices${search ? `?search=${encodeURIComponent(search)}` : ""}`),
+  getDevices: (params = {}) => {
+    const p = typeof params === "string" ? { search: params } : params;
+    const qs = new URLSearchParams();
+    if (p.search) qs.set("search", p.search);
+    if (p.status && p.status !== "all") qs.set("status", p.status);
+    if (p.type && p.type !== "all") qs.set("type", p.type);
+    if (p.computerId && p.computerId !== "all" && p.computerId !== "unassigned") {
+      qs.set("computerId", p.computerId);
+    }
+    if (p.computerId === "unassigned" || p.unassigned) qs.set("unassigned", "true");
+    const s = qs.toString();
+    return request(`/devices${s ? `?${s}` : ""}`);
+  },
 
   getDevice: (id) => request(`/devices/${id}`),
 

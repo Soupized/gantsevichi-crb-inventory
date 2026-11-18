@@ -30,7 +30,7 @@ export default function Modal({ title, subtitle, onClose, children, size = "defa
             <h2>{title}</h2>
             {subtitle && <p className="modal-subtitle">{subtitle}</p>}
           </div>
-          <button className="icon-btn" onClick={onClose} aria-label="???????" title="???????">
+          <button className="icon-btn" onClick={onClose} aria-label="Закрыть" title="Закрыть">
             <CloseIcon />
           </button>
         </header>
