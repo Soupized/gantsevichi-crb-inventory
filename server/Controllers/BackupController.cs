@@ -148,7 +148,12 @@ public class BackupController(IConfiguration configuration, IWebHostEnvironment 
         }
         catch { }
 
-        await using var dest = new SqliteConnection($"Data Source={destinationPath}");
+        var destinationString = new SqliteConnectionStringBuilder
+        {
+            DataSource = destinationPath,
+            Pooling = false
+        }.ToString();
+        await using var dest = new SqliteConnection(destinationString);
         await dest.OpenAsync();
         source.BackupDatabase(dest);
     }
