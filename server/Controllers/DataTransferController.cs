@@ -104,7 +104,8 @@ public class DataTransferController(AppDbContext db) : ControllerBase
 
         var upsert = !string.Equals(mode, "insert", StringComparison.OrdinalIgnoreCase);
         var result = new ImportResult();
-        var seenInFile = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var owners = await LoadOwnersByKeyAsync();
+        var seenInFile = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var (row, index) in rows.Select((r, i) => (r, i + 2)))
         {
@@ -116,25 +117,29 @@ public class DataTransferController(AppDbContext db) : ControllerBase
             }
 
             var inv = invRaw.Trim();
-            if (!seenInFile.Add(inv))
+            var key = InventoryNumberGuard.Normalize(inv);
+            if (key.Length == 0 || !seenInFile.Add(key))
             {
                 result.Errors.Add($"Строка {index}: инвентарный номер '{inv}' повторяется в файле.");
                 continue;
             }
 
-            var existingComputer = await db.Computers
-                .FirstOrDefaultAsync(c => EF.Functions.Collate(c.InventoryNumber, "NOCASE") == inv);
-            var takenByDevice = await db.Devices
-                .AnyAsync(d => EF.Functions.Collate(d.InventoryNumber, "NOCASE") == inv);
+            owners.TryGetValue(key, out var owner);
+            Computer? existingComputer = null;
+
+            if (owner?.StartsWith("computer:", StringComparison.Ordinal) == true)
+            {
+                var id = OwnerId(owner);
+                existingComputer = await db.Computers.FirstOrDefaultAsync(c => c.Id == id);
+            }
+            else if (owner is not null)
+            {
+                result.Errors.Add($"Строка {index}: инвентарный номер '{inv}' уже используется устройством.");
+                continue;
+            }
 
             if (existingComputer is null)
             {
-                if (takenByDevice)
-                {
-                    result.Errors.Add($"Строка {index}: инвентарный номер '{inv}' уже используется устройством.");
-                    continue;
-                }
-
                 var computer = new Computer
                 {
                     CreatedAt = DateTime.UtcNow,
@@ -160,6 +165,10 @@ public class DataTransferController(AppDbContext db) : ControllerBase
         {
             await db.SaveChangesAsync();
         }
+        catch (InventoryNumberConflictException ex)
+        {
+            return Conflict(new { message = ex.Message, result });
+        }
         catch (DbUpdateException ex) when (ex.InnerException is SqliteException { SqliteErrorCode: 19 })
         {
             return Conflict(new { message = "Конфликт уникальности при импорте. Проверьте дубли инвентарных номеров (включая совпадения между компьютерами и устройствами).", result });
@@ -181,7 +190,8 @@ public class DataTransferController(AppDbContext db) : ControllerBase
 
         var upsert = !string.Equals(mode, "insert", StringComparison.OrdinalIgnoreCase);
         var result = new ImportResult();
-        var seenInFile = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var owners = await LoadOwnersByKeyAsync();
+        var seenInFile = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var (row, index) in rows.Select((r, i) => (r, i + 2)))
         {
@@ -193,33 +203,37 @@ public class DataTransferController(AppDbContext db) : ControllerBase
             }
 
             var inv = invRaw.Trim();
-            if (!seenInFile.Add(inv))
+            var key = InventoryNumberGuard.Normalize(inv);
+            if (key.Length == 0 || !seenInFile.Add(key))
             {
                 result.Errors.Add($"Строка {index}: инвентарный номер '{inv}' повторяется в файле.");
                 continue;
             }
 
-            var existingDevice = await db.Devices
-                .FirstOrDefaultAsync(d => EF.Functions.Collate(d.InventoryNumber, "NOCASE") == inv);
-            var takenByComputer = await db.Computers
-                .AnyAsync(c => EF.Functions.Collate(c.InventoryNumber, "NOCASE") == inv);
+            owners.TryGetValue(key, out var owner);
+            Device? existingDevice = null;
+
+            if (owner?.StartsWith("device:", StringComparison.Ordinal) == true)
+            {
+                var id = OwnerId(owner);
+                existingDevice = await db.Devices.FirstOrDefaultAsync(d => d.Id == id);
+            }
+            else if (owner is not null)
+            {
+                result.Errors.Add($"Строка {index}: инвентарный номер '{inv}' уже используется компьютером.");
+                continue;
+            }
 
             if (existingDevice is null)
             {
-                if (takenByComputer)
-                {
-                    result.Errors.Add($"Строка {index}: инвентарный номер '{inv}' уже используется компьютером.");
-                    continue;
-                }
-
                 var device = new Device { CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow };
-                if (!await TryApplyDeviceAsync(device, row, index, result.Errors)) continue;
+                if (!TryApplyDevice(device, row, owners, index, result.Errors)) continue;
                 db.Devices.Add(device);
                 result.Created++;
             }
             else if (upsert)
             {
-                if (!await TryApplyDeviceAsync(existingDevice, row, index, result.Errors)) continue;
+                if (!TryApplyDevice(existingDevice, row, owners, index, result.Errors)) continue;
                 existingDevice.UpdatedAt = DateTime.UtcNow;
                 result.Updated++;
             }
@@ -233,6 +247,10 @@ public class DataTransferController(AppDbContext db) : ControllerBase
         {
             await db.SaveChangesAsync();
         }
+        catch (InventoryNumberConflictException ex)
+        {
+            return Conflict(new { message = ex.Message, result });
+        }
         catch (DbUpdateException ex) when (ex.InnerException is SqliteException { SqliteErrorCode: 19 })
         {
             return Conflict(new { message = "Конфликт уникальности при импорте. Проверьте дубли инвентарных номеров (включая совпадения между компьютерами и устройствами).", result });
@@ -240,6 +258,17 @@ public class DataTransferController(AppDbContext db) : ControllerBase
 
         return Ok(result);
     }
+
+    private async Task<Dictionary<string, string>> LoadOwnersByKeyAsync()
+    {
+        var keys = await InventoryNumberGuard.LoadOwnedKeysAsync(db);
+        return keys
+            .GroupBy(item => item.Key, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First().Owner, StringComparer.Ordinal);
+    }
+
+    private static int OwnerId(string owner) =>
+        int.Parse(owner[(owner.IndexOf(':') + 1)..], CultureInfo.InvariantCulture);
 
     private static bool TryApplyComputer(Computer c, Dictionary<string, string> row, int index, List<string> errors)
     {
@@ -269,7 +298,12 @@ public class DataTransferController(AppDbContext db) : ControllerBase
         return true;
     }
 
-    private async Task<bool> TryApplyDeviceAsync(Device d, Dictionary<string, string> row, int index, List<string> errors)
+    private bool TryApplyDevice(
+        Device d,
+        Dictionary<string, string> row,
+        Dictionary<string, string> owners,
+        int index,
+        List<string> errors)
     {
         var inv = Get(row, "InventoryNumber")?.Trim();
         if (string.IsNullOrWhiteSpace(inv)) { errors.Add($"Строка {index}: пустой InventoryNumber."); return false; }
@@ -305,14 +339,14 @@ public class DataTransferController(AppDbContext db) : ControllerBase
         }
         else
         {
-            var comp = await db.Computers.AsNoTracking()
-                .FirstOrDefaultAsync(c => EF.Functions.Collate(c.InventoryNumber, "NOCASE") == compInv);
-            if (comp is null)
+            var compKey = InventoryNumberGuard.Normalize(compInv);
+            if (!owners.TryGetValue(compKey, out var owner) ||
+                !owner.StartsWith("computer:", StringComparison.Ordinal))
             {
                 errors.Add($"Строка {index}: компьютер с инвентарным номером '{compInv}' не найден.");
                 return false;
             }
-            d.ComputerId = comp.Id;
+            d.ComputerId = OwnerId(owner);
         }
 
         return true;

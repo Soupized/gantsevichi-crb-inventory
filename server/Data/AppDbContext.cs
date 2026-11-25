@@ -14,9 +14,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             entity.Property(c => c.InventoryNumber)
                 .IsRequired()
-                .HasMaxLength(50)
-                .UseCollation("NOCASE");
-            entity.HasIndex(c => c.InventoryNumber).IsUnique();
+                .HasMaxLength(50);
+            entity.Property(c => c.InventoryNumberKey)
+                .IsRequired()
+                .HasMaxLength(200)
+                .HasDefaultValue(string.Empty);
 
             entity.Property(c => c.Model).HasMaxLength(150);
             entity.Property(c => c.Processor).HasMaxLength(200);
@@ -35,9 +37,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             entity.Property(d => d.InventoryNumber)
                 .IsRequired()
-                .HasMaxLength(50)
-                .UseCollation("NOCASE");
-            entity.HasIndex(d => d.InventoryNumber).IsUnique();
+                .HasMaxLength(50);
+            entity.Property(d => d.InventoryNumberKey)
+                .IsRequired()
+                .HasMaxLength(200)
+                .HasDefaultValue(string.Empty);
 
             entity.Property(d => d.Type).HasConversion<string>().HasMaxLength(30);
             entity.Property(d => d.Manufacturer).HasMaxLength(150);
@@ -52,5 +56,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasForeignKey(d => d.ComputerId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
+    }
+
+    public override int SaveChanges()
+    {
+        InventoryNumberGuard.PrepareChanges(this);
+        return base.SaveChanges();
+    }
+
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        await InventoryNumberGuard.PrepareChangesAsync(this, cancellationToken);
+        return await base.SaveChangesAsync(cancellationToken);
     }
 }

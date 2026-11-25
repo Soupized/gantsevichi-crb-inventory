@@ -70,7 +70,7 @@ public class ComputersController(AppDbContext db) : ControllerBase
     {
         var number = input.InventoryNumber.Trim();
 
-        if (await InventoryNumberTakenAsync(number))
+        if (await InventoryNumberGuard.IsTakenAsync(db, number))
         {
             return DuplicateInventoryNumber();
         }
@@ -86,6 +86,10 @@ public class ComputersController(AppDbContext db) : ControllerBase
         try
         {
             await db.SaveChangesAsync();
+        }
+        catch (InventoryNumberConflictException)
+        {
+            return DuplicateInventoryNumber();
         }
         catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
         {
@@ -114,8 +118,7 @@ public class ComputersController(AppDbContext db) : ControllerBase
 
         var number = input.InventoryNumber.Trim();
 
-        if (await db.Computers.AnyAsync(c => c.Id != id && EF.Functions.Collate(c.InventoryNumber, "NOCASE") == number) ||
-            await db.Devices.AnyAsync(d => EF.Functions.Collate(d.InventoryNumber, "NOCASE") == number))
+        if (await InventoryNumberGuard.IsTakenAsync(db, number, computerId: id))
         {
             return DuplicateInventoryNumber();
         }
@@ -126,6 +129,10 @@ public class ComputersController(AppDbContext db) : ControllerBase
         try
         {
             await db.SaveChangesAsync();
+        }
+        catch (InventoryNumberConflictException)
+        {
+            return DuplicateInventoryNumber();
         }
         catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
         {
@@ -150,10 +157,6 @@ public class ComputersController(AppDbContext db) : ControllerBase
 
         return NoContent();
     }
-
-    private async Task<bool> InventoryNumberTakenAsync(string number) =>
-        await db.Computers.AnyAsync(c => EF.Functions.Collate(c.InventoryNumber, "NOCASE") == number) ||
-        await db.Devices.AnyAsync(d => EF.Functions.Collate(d.InventoryNumber, "NOCASE") == number);
 
     private ActionResult DuplicateInventoryNumber()
     {

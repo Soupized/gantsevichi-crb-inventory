@@ -1038,6 +1038,77 @@ dd {
   }
 }
 
+.login-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.login-card {
+  width: min(420px, 100%);
+  padding: 34px 32px 32px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  text-align: center;
+}
+
+.login-logo {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 18px;
+  border-radius: 18px;
+  color: #ffffff;
+  background: linear-gradient(135deg, #123f3b, #0f766e);
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.login-card h1 {
+  margin-top: 8px;
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  letter-spacing: -0.02em;
+}
+
+.login-card .eyebrow {
+  margin-top: 4px;
+}
+
+.login-hint {
+  margin: 12px 0 24px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.login-card .form-field {
+  text-align: left;
+}
+
+.login-submit {
+  width: 100%;
+  margin-top: 20px;
+}
+
+.login-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  text-align: left;
+}
+
+.login-error svg {
+  flex: 0 0 auto;
+}
+
 @media (max-width: 980px) {
   .app-shell {
     padding: 18px 18px 44px;

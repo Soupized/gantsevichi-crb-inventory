@@ -8,6 +8,7 @@ import DeviceForm from "./components/DeviceForm.jsx";
 import ConfirmDialog from "./components/ConfirmDialog.jsx";
 import EmptyState from "./components/EmptyState.jsx";
 import Modal from "./components/Modal.jsx";
+import Login from "./components/Login.jsx";
 import {
   AlertIcon,
   CheckIcon,
@@ -40,6 +41,40 @@ export default function App() {
   const importCompRef = useRef(null);
   const importDevRef = useRef(null);
   const initialized = useRef(false);
+  const [auth, setAuth] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    api.getAuthStatus()
+      .then((status) => {
+        if (active) setAuth(status.authenticated === true);
+      })
+      .catch(() => {
+        if (active) setAuth(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleLogin = () => {
+    initialized.current = false;
+    setError("");
+    setAuth(true);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await api.logout();
+    } catch {}
+    initialized.current = false;
+    setAllComputers([]);
+    setAllDevices([]);
+    setComputers([]);
+    setDevices([]);
+    setError("");
+    setAuth(false);
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(query.trim()), 300);
@@ -76,7 +111,8 @@ export default function App() {
       await Promise.all([loadBase(), loadLists()]);
       setError("");
     } catch (err) {
-      setError(err.message);
+      if (err.status === 401) setAuth(false);
+      else setError(err.message);
     } finally {
       if (!silent) setLoading(false);
       initialized.current = true;
@@ -84,10 +120,12 @@ export default function App() {
   }, [loadBase, loadLists]);
 
   useEffect(() => {
+    if (auth !== true) return;
     loadBase().catch((err) => setError(err.message));
-  }, [loadBase]);
+  }, [auth, loadBase]);
 
   useEffect(() => {
+    if (auth !== true) return;
     if (!initialized.current) {
       loadLists()
         .then(() => {
@@ -105,7 +143,7 @@ export default function App() {
       .then(() => setError(""))
       .catch((err) => setError(err.message))
       .finally(() => setListLoading(false));
-  }, [loadLists]);
+  }, [auth, loadLists]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -239,6 +277,19 @@ export default function App() {
     }
   };
 
+  if (auth === null) {
+    return (
+      <div className="loading-state" role="status">
+        <span className="spinner" />
+        Проверка доступа…
+      </div>
+    );
+  }
+
+  if (auth === false) {
+    return <Login onSuccess={handleLogin} />;
+  }
+
   const searchPlaceholder =
     tab === "computers"
       ? "Поиск по номеру, модели, кабинету..."
@@ -260,6 +311,9 @@ export default function App() {
         </div>
 
         <div className="header-actions">
+          <button className="btn btn-secondary btn-header" onClick={handleLogout}>
+            Выйти
+          </button>
           <button className="btn btn-secondary btn-header" onClick={() => setDataModal(true)}>
             Данные
           </button>
@@ -549,7 +603,7 @@ export default function App() {
 
             <section className="data-section">
               <h3>Импорт из CSV</h3>
-              <p className="form-hint">Импорт добавляет новые записи и обновляет существующие по инвентарному номеру (без учёта регистра). Инвентарный номер должен быть уникальным для всех компьютеров и устройств. Формат колонок — как в экспортированных CSV. Для периферии привязка к компьютеру задаётся колонкой ComputerInventoryNumber.</p>
+              <p className="form-hint">Импорт добавляет новые записи и обновляет существующие по инвентарному номеру с учётом регистра кириллицы и пробелов. Инвентарный номер должен быть уникальным для всех компьютеров и устройств. Формат колонок — как в экспортированных CSV. Для периферии привязка к компьютеру задаётся колонкой ComputerInventoryNumber.</p>
               <div className="data-actions">
                 <button className="btn btn-secondary" onClick={() => importCompRef.current?.click()} disabled={!!busyAction}>
                   Импорт компьютеров (.csv)…

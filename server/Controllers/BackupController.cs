@@ -1,11 +1,13 @@
+using LibraryInventory.Api.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 
 namespace LibraryInventory.Api.Controllers;
 
 [ApiController]
 [Route("api/backup")]
-public class BackupController(IConfiguration configuration, IWebHostEnvironment env) : ControllerBase
+public class BackupController(IConfiguration configuration, IWebHostEnvironment env, AppDbContext db) : ControllerBase
 {
     [HttpGet("download")]
     public async Task<IActionResult> Download()
@@ -73,6 +75,7 @@ public class BackupController(IConfiguration configuration, IWebHostEnvironment 
                 }
             }
 
+            await db.Database.GetDbConnection().CloseAsync();
             SqliteConnection.ClearAllPools();
 
             var directory = Path.GetDirectoryName(dbPath);
@@ -84,6 +87,8 @@ public class BackupController(IConfiguration configuration, IWebHostEnvironment 
             System.IO.File.Copy(tempUpload, dbPath, overwrite: true);
             TryDelete(dbPath + "-wal");
             TryDelete(dbPath + "-shm");
+
+            await DatabaseMaintenance.PrepareAsync(db);
 
             return Ok(new
             {

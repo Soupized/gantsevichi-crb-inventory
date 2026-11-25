@@ -1,18 +1,31 @@
 const BASE_URL = "/api";
 
+export class ApiError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+function fetchOptions(options = {}) {
+  return {
+    ...options,
+    credentials: "same-origin",
+    headers: {
+      ...(options.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+      ...(options.headers || {})
+    }
+  };
+}
+
 async function request(path, options = {}) {
   let response;
 
   try {
-    response = await fetch(`${BASE_URL}${path}`, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...(options.headers || {})
-      }
-    });
+    response = await fetch(`${BASE_URL}${path}`, fetchOptions(options));
   } catch {
-    throw new Error("Не удалось подключиться к серверу. Проверьте, запущено ли приложение.");
+    throw new ApiError("Не удалось подключиться к серверу. Проверьте, запущено ли приложение.", 0);
   }
 
   return parseResponse(response);
@@ -20,22 +33,7 @@ async function request(path, options = {}) {
 
 async function parseResponse(response) {
   if (!response.ok) {
-    let message = `Ошибка запроса (${response.status})`;
-
-    try {
-      const data = await response.json();
-      if (data?.errors) {
-        message = Object.values(data.errors).flat().join(" ");
-      } else if (data?.detail) {
-        message = data.detail;
-      } else if (data?.title) {
-        message = data.title;
-      } else if (data?.message) {
-        message = data.message;
-      }
-    } catch {}
-
-    throw new Error(message);
+    await throwResponseError(response);
   }
 
   if (response.status === 204) {
@@ -49,21 +47,34 @@ async function parseResponse(response) {
   return response;
 }
 
+async function throwResponseError(response) {
+  let message = `Ошибка запроса (${response.status})`;
+
+  try {
+    const data = await response.json();
+    if (data?.errors) {
+      message = Object.values(data.errors).flat().join(" ");
+    } else if (data?.detail) {
+      message = data.detail;
+    } else if (data?.title) {
+      message = data.title;
+    } else if (data?.message) {
+      message = data.message;
+    }
+  } catch {}
+
+  throw new ApiError(message, response.status);
+}
+
 async function requestBlob(path) {
   let response;
   try {
-    response = await fetch(`${BASE_URL}${path}`);
+    response = await fetch(`${BASE_URL}${path}`, fetchOptions());
   } catch {
-    throw new Error("Не удалось подключиться к серверу. Проверьте, запущено ли приложение.");
+    throw new ApiError("Не удалось подключиться к серверу. Проверьте, запущено ли приложение.", 0);
   }
   if (!response.ok) {
-    let message = `Ошибка запроса (${response.status})`;
-    try {
-      const data = await response.json();
-      if (data?.message) message = data.message;
-      else if (data?.detail) message = data.detail;
-    } catch {}
-    throw new Error(message);
+    await throwResponseError(response);
   }
   return response.blob();
 }
@@ -71,12 +82,9 @@ async function requestBlob(path) {
 async function requestForm(path, formData, method = "POST") {
   let response;
   try {
-    response = await fetch(`${BASE_URL}${path}`, {
-      method,
-      body: formData
-    });
+    response = await fetch(`${BASE_URL}${path}`, fetchOptions({ method, body: formData }));
   } catch {
-    throw new Error("Не удалось подключиться к серверу. Проверьте, запущено ли приложение.");
+    throw new ApiError("Не удалось подключиться к серверу. Проверьте, запущено ли приложение.", 0);
   }
   return parseResponse(response);
 }
@@ -93,6 +101,13 @@ function downloadBlob(blob, filename) {
 }
 
 export const api = {
+  getAuthStatus: () => request("/auth/status"),
+
+  login: (password) =>
+    request("/auth/login", { method: "POST", body: JSON.stringify({ password }) }),
+
+  logout: () => request("/auth/logout", { method: "POST" }),
+
   getComputers: (params = {}) => {
     const p = typeof params === "string" ? { search: params } : params;
     const qs = new URLSearchParams();

@@ -4,6 +4,7 @@ public class Device
 {
     public int Id { get; set; }
     public string InventoryNumber { get; set; } = string.Empty;
+    public string InventoryNumberKey { get; set; } = string.Empty;
     public DeviceType Type { get; set; } = DeviceType.Other;
     public string? Manufacturer { get; set; }
     public string? Model { get; set; }

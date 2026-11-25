@@ -4,6 +4,7 @@ public class Computer
 {
     public int Id { get; set; }
     public string InventoryNumber { get; set; } = string.Empty;
+    public string InventoryNumberKey { get; set; } = string.Empty;
     public string? Model { get; set; }
     public string? Processor { get; set; }
     public string? GraphicsCard { get; set; }
