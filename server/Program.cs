@@ -105,7 +105,7 @@ if (File.Exists(indexPath))
 
         context.Response.ContentType = "text/html; charset=utf-8";
         await context.Response.SendFileAsync(indexPath);
-    });
+    }).AllowAnonymous();
 }
 
 app.Run();
