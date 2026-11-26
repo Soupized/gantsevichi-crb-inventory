@@ -31,6 +31,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(c => c.Status).HasConversion<string>().HasMaxLength(30).HasDefaultValue(EquipmentStatus.InUse);
             entity.Property(c => c.DecommissionReason).HasMaxLength(500);
             entity.Property(c => c.Notes).HasMaxLength(1000);
+
+            entity.HasIndex(c => c.InventoryNumber);
+            entity.HasIndex(c => c.Status);
         });
 
         modelBuilder.Entity<Device>(entity =>
@@ -55,6 +58,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany(c => c.Devices)
                 .HasForeignKey(d => d.ComputerId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(d => d.InventoryNumber);
+            entity.HasIndex(d => d.ComputerId);
+            entity.HasIndex(d => d.Type);
+            entity.HasIndex(d => d.Status);
         });
     }
 

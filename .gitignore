@@ -6,6 +6,7 @@ server/library.db
 server/library.db-shm
 server/library.db-wal
 server/auth-password.txt
+start.log
 
 client/node_modules/
 

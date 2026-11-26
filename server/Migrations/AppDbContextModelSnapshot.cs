@@ -99,6 +99,10 @@ namespace LibraryInventory.Api.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("InventoryNumber");
+
+                    b.HasIndex("Status");
+
                     b.ToTable("Computers");
                 });
 
@@ -167,6 +171,12 @@ namespace LibraryInventory.Api.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ComputerId");
+
+                    b.HasIndex("InventoryNumber");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("Type");
 
                     b.ToTable("Devices");
                 });
